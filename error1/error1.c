@@ -12,7 +12,8 @@
 
 int main (int argc, char *argv[]) 
 {
-int i, nthreads, tid, section;
+int i, tid, section;
+int nthreads = 4;
 float a[N], b[N], c[N];
 void print_results(float array[N], int tid, int section);
 
@@ -20,12 +21,11 @@ void print_results(float array[N], int tid, int section);
 for (i=0; i<N; i++)
   a[i] = b[i] = i * 1.0;
 
-#pragma omp parallel private(i,tid,section)
+#pragma omp parallel private(i,tid,section) num_threads(nthreads)
   {
   tid = omp_get_thread_num();
   if (tid == 0)
     {
-    nthreads = omp_get_num_threads();
     printf("Number of threads = %d\n", nthreads);
     }
 
@@ -87,4 +87,3 @@ void print_results(float array[N], int tid, int section)
   printf("Thread %d done and synchronized.\n", tid); 
 
 }
-  
