@@ -21,6 +21,14 @@ int main(int argc, char **argv) {
 #pragma omp parallel for reduction ( +:globalCount)  num_threads(4)
 	for (int i = 0; i < globalSamples; ++i) {
 		globalCount += throw();
+
+
+		// find end of each thread and use it to print last globalCount-value
+		if(i==((omp_get_thread_num()+1) * globalSamples / omp_get_num_threads()) - 1){
+			printf("Thread %d: treffer %d \n", omp_get_thread_num(), globalCount);
+		}
+
+
 	}
 
 	double pi = 4.0 * (double) globalCount / (double) (globalSamples);
