@@ -18,16 +18,24 @@ static int throw() {
 int main(int argc, char **argv) {
 	int globalCount = 0, globalSamples = TRYS;
 
-#pragma omp parallel for reduction ( +:globalCount)  num_threads(4)
+	printf("How many threads? : ");
+
+	int nthreads=0;
+
+	// Max length of 99 characters; puts a null terminated string in path, thus 99 chars + null is the max
+	scanf( "%d" , &nthreads);
+
+#pragma omp parallel for reduction ( +:globalCount)  num_threads(nthreads)
 	for (int i = 0; i < globalSamples; ++i) {
 		globalCount += throw();
 
-
 		// find end of each thread and use it to print last globalCount-value
-		if(i==((omp_get_thread_num()+1) * globalSamples / omp_get_num_threads()) - 1){
-			printf("Thread %d: treffer %d \n", omp_get_thread_num(), globalCount);
+		if (i
+				== ((omp_get_thread_num() + 1) * globalSamples
+						/ omp_get_num_threads()) - 1) {
+			printf("Thread %d: treffer %d \n", omp_get_thread_num(),
+					globalCount);
 		}
-
 
 	}
 
