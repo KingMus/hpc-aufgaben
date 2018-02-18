@@ -17,6 +17,7 @@ static int throw() {
 int main(int argc, char **argv) {
   int globalCount = 0, globalSamples=TRYS;
 
+
   for(int i = 0; i < globalSamples; ++i) {
 		globalCount += throw();
   }
