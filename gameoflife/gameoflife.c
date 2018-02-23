@@ -56,15 +56,15 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 }
 
 int countLifingsPeriodic(unsigned* currentfield, int x, int y, int w, int h) {
-	int n = 0;
+	int neighbours = 0;
 	for (int y1 = y - 1; y1 <= y + 1; y1++) {
 		for (int x1 = x - 1; x1 <= x + 1; x1++) {
 			if (currentfield[calcIndex(w, (x1 + w) % w, (y1 + h) % h)]) {
-				n++;
+				neighbours++;
 			}
 		}
 	}
-	return n;
+	return neighbours;
 
 }
 
