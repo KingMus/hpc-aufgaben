@@ -88,12 +88,13 @@ void evolve(double* currentfield, double* newfield, int w, int h) {
 	{
 
 		//Thread 1
-#pragma opm section
+#pragma omp section
 		{
 
 			int x, y;
-			for (y = 0; y < h; y++) {
-				for (x = 0; x < w; x++) {
+			//	int berechneteHoehe = calcIndex(w, w, (h/2))/2;
+			for (y = 0; y < h / 2; y++) {
+				for (x = 0; x < w / 2; x++) {
 
 					int n = countLifingsPeriodic(currentfield, x, y, w, h);
 					if (currentfield[calcIndex(w, x, y)])
@@ -104,15 +105,18 @@ void evolve(double* currentfield, double* newfield, int w, int h) {
 
 				}
 			}
+
+			printf("Thread %d hat berechnet \n", omp_get_thread_num());
 		}
 
 		//Thread 2
-#pragma opm section
+#pragma omp section
 		{
 
 			int x, y;
-			for (y = 0; y < h; y++) {
-				for (x = 0; x < w; x++) {
+			//int halbeHoehe = calcIndex(w, w, (h/2));
+			for (y = h / 2; y < h; y++) {
+				for (x = 0; x < w / 2; x++) {
 
 					int n = countLifingsPeriodic(currentfield, x, y, w, h);
 					if (currentfield[calcIndex(w, x, y)])
@@ -123,15 +127,16 @@ void evolve(double* currentfield, double* newfield, int w, int h) {
 
 				}
 			}
+			printf("Thread %d hat berechnet \n", omp_get_thread_num());
 
 		}
 
 		//Thread 3
-#pragma opm section
+#pragma omp section
 		{
 			int x, y;
-			for (y = 0; y < h; y++) {
-				for (x = 0; x < w; x++) {
+			for (y = 0; y < h / 2; y++) {
+				for (x = w / 2; x < w; x++) {
 
 					int n = countLifingsPeriodic(currentfield, x, y, w, h);
 					if (currentfield[calcIndex(w, x, y)])
@@ -142,14 +147,16 @@ void evolve(double* currentfield, double* newfield, int w, int h) {
 
 				}
 			}
+
+			printf("Thread %d hat berechnet \n", omp_get_thread_num());
 		}
 
 		//Thread 4
-#pragma opm section
+#pragma omp section
 		{
 			int x, y;
-			for (y = 0; y < h; y++) {
-				for (x = 0; x < w; x++) {
+			for (y = h / 2; y < h; y++) {
+				for (x = 2 / 2; x < w; x++) {
 
 					int n = countLifingsPeriodic(currentfield, x, y, w, h);
 					if (currentfield[calcIndex(w, x, y)])
@@ -160,7 +167,9 @@ void evolve(double* currentfield, double* newfield, int w, int h) {
 
 				}
 			}
+			printf("Thread %d hat berechnet \n", omp_get_thread_num());
 		}
+
 
 	}
 
