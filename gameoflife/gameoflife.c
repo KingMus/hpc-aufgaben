@@ -31,8 +31,8 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 			"<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n");
 	fprintf(fp,
 			"<ImageData WholeExtent=\"%d %d %d %d %d %d\" Origin=\"0 0 0\" Spacing=\"%le %le %le\">\n",
-			offsetX, offsetX + w - 1, offsetY, offsetY + h - 1, 0, 0, deltax,
-			deltax, 0.0);
+			offsetX, offsetX + w, offsetY, offsetY + h, 0, 0, deltax, deltax,
+			0.0);
 	fprintf(fp, "<CellData Scalars=\"%s\">\n", prefix);
 	fprintf(fp,
 			"<DataArray type=\"Float32\" Name=\"%s\" format=\"appended\" offset=\"0\"/>\n",
@@ -55,7 +55,7 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 	fclose(fp);
 }
 
-int countLifingsPeriodic(unsigned* currentfield, int x, int y, int w, int h) {
+int countLifingsPeriodic(double* currentfield, int x, int y, int w, int h) {
 	int neighbours = 0;
 	for (int y1 = y - 1; y1 <= y + 1; y1++) {
 		for (int x1 = x - 1; x1 <= x + 1; x1++) {
@@ -92,10 +92,12 @@ void evolve(double* currentfield, double* newfield, int w, int h) {
 			int n = countLifingsPeriodic(currentfield, x, y, w, h);
 			if (currentfield[calcIndex(w, x, y)])
 				n--;
+
 			newfield[calcIndex(w, x, y)] = (n == 3
 					|| (n == 2 && currentfield[calcIndex(w, x, y)]));
 
-			newfield[calcIndex(w, x, y)] = !newfield[calcIndex(w, x, y)];
+//newfield[calcIndex(w, x, y)] = !newfield[calcIndex(w, x, y)];
+
 		}
 	}
 }
@@ -120,6 +122,7 @@ void game(int w, int h) {
 		evolve(currentfield, newfield, w, h);
 
 		printf("%ld timestep\n", t);
+
 		writeVTK2(t, currentfield, "gol", w, h);
 
 		usleep(200000);
@@ -142,8 +145,8 @@ int main(int c, char **v) {
 	if (c > 2)
 		h = atoi(v[2]); ///< read height
 	if (w <= 0)
-		w = 30; ///< default width
+		w = 70; ///< default width
 	if (h <= 0)
-		h = 30; ///< default height
+		h = 70; ///< default height
 	game(w, h);
 }

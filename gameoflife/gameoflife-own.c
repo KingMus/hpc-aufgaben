@@ -34,8 +34,8 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 			"<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n");
 	fprintf(fp,
 			"<ImageData WholeExtent=\"%d %d %d %d %d %d\" Origin=\"0 0 0\" Spacing=\"%le %le %le\">\n",
-			offsetX, offsetX + w - 1, offsetY, offsetY + h - 1, 0, 0, deltax,
-			deltax, 0.0);
+			offsetX, offsetX + w, offsetY, offsetY + h, 0, 0, deltax, deltax,
+			0.0);
 	fprintf(fp, "<CellData Scalars=\"%s\">\n", prefix);
 	fprintf(fp,
 			"<DataArray type=\"Float32\" Name=\"%s\" format=\"appended\" offset=\"0\"/>\n",
