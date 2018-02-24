@@ -83,23 +83,87 @@ void show(double* currentfield, int w, int h) {
 }
 
 void evolve(double* currentfield, double* newfield, int w, int h) {
-	int x, y;
-	for (y = 0; y < h; y++) {
-		for (x = 0; x < w; x++) {
 
-			//TODO FIXME impletent rules and assign new value
+#pragma omp parallel sections num_threads(4)
+	{
 
-			int n = countLifingsPeriodic(currentfield, x, y, w, h);
-			if (currentfield[calcIndex(w, x, y)])
-				n--;
+		//Thread 1
+#pragma opm section
+		{
 
-			newfield[calcIndex(w, x, y)] = (n == 3
-					|| (n == 2 && currentfield[calcIndex(w, x, y)]));
+			int x, y;
+			for (y = 0; y < h; y++) {
+				for (x = 0; x < w; x++) {
 
-//newfield[calcIndex(w, x, y)] = !newfield[calcIndex(w, x, y)];
+					int n = countLifingsPeriodic(currentfield, x, y, w, h);
+					if (currentfield[calcIndex(w, x, y)])
+						n--;
+
+					newfield[calcIndex(w, x, y)] = (n == 3
+							|| (n == 2 && currentfield[calcIndex(w, x, y)]));
+
+				}
+			}
+		}
+
+		//Thread 2
+#pragma opm section
+		{
+
+			int x, y;
+			for (y = 0; y < h; y++) {
+				for (x = 0; x < w; x++) {
+
+					int n = countLifingsPeriodic(currentfield, x, y, w, h);
+					if (currentfield[calcIndex(w, x, y)])
+						n--;
+
+					newfield[calcIndex(w, x, y)] = (n == 3
+							|| (n == 2 && currentfield[calcIndex(w, x, y)]));
+
+				}
+			}
 
 		}
+
+		//Thread 3
+#pragma opm section
+		{
+			int x, y;
+			for (y = 0; y < h; y++) {
+				for (x = 0; x < w; x++) {
+
+					int n = countLifingsPeriodic(currentfield, x, y, w, h);
+					if (currentfield[calcIndex(w, x, y)])
+						n--;
+
+					newfield[calcIndex(w, x, y)] = (n == 3
+							|| (n == 2 && currentfield[calcIndex(w, x, y)]));
+
+				}
+			}
+		}
+
+		//Thread 4
+#pragma opm section
+		{
+			int x, y;
+			for (y = 0; y < h; y++) {
+				for (x = 0; x < w; x++) {
+
+					int n = countLifingsPeriodic(currentfield, x, y, w, h);
+					if (currentfield[calcIndex(w, x, y)])
+						n--;
+
+					newfield[calcIndex(w, x, y)] = (n == 3
+							|| (n == 2 && currentfield[calcIndex(w, x, y)]));
+
+				}
+			}
+		}
+
 	}
+
 }
 
 void filling(double* currentfield, int w, int h) {
@@ -113,12 +177,13 @@ void game(int w, int h) {
 	double *currentfield = calloc(w * h, sizeof(double));
 	double *newfield = calloc(w * h, sizeof(double));
 
-	//printf("size unsigned %d, size long %d\n",sizeof(float), sizeof(long));
+//printf("size unsigned %d, size long %d\n",sizeof(float), sizeof(long));
 
 	filling(currentfield, w, h);
 	long t;
 	for (t = 0; t < TimeSteps; t++) {
 		show(currentfield, w, h);
+
 		evolve(currentfield, newfield, w, h);
 
 		printf("%ld timestep\n", t);
@@ -145,8 +210,8 @@ int main(int c, char **v) {
 	if (c > 2)
 		h = atoi(v[2]); ///< read height
 	if (w <= 0)
-		w = 70; ///< default width
+		w = 30; ///< default width
 	if (h <= 0)
-		h = 70; ///< default height
+		h = 30; ///< default height
 	game(w, h);
 }
