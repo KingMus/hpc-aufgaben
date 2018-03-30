@@ -10,7 +10,7 @@
 
 #define calcIndex(width, x,y)  ((y)*(width) + (x))
 
-long TimeSteps = 100;
+long TimeSteps = 300;
 
 void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 	char filename[2048];
@@ -82,33 +82,18 @@ void show(double* currentfield, int w, int h) {
 	fflush(stdout);
 }
 
-void evolve(double* currentfield, double* newfield, int w, int h, int x_start,
-		int y_start) {
+void evolve(double* currentfield, double* newfield, int w, int h) {
 
 	int x, y;
-<<<<<<< HEAD
-=======
-	for (y = y_start; y < h; y++) {
-		for (x = x_start; x < w; x++) {
->>>>>>> branch 'master' of https://github.com/KingMus/hpc-aufgaben
 
-<<<<<<< HEAD
 #pragma omp parallel for num_threads(12) collapse(2)
 	for (y = 0; y < h; y++) {
 		for (x = 0; x < w; x++) {
-=======
-			int n = countLifingsPeriodic(currentfield, x, y, w, h);
-			if (currentfield[calcIndex(w, x, y)])
-				n--;
->>>>>>> branch 'master' of https://github.com/KingMus/hpc-aufgaben
 
-<<<<<<< HEAD
 			int n = countLifingsPeriodic(currentfield, x, y, w, h);
 			if (currentfield[calcIndex(w, x, y)])
 				n--;
 
-=======
->>>>>>> branch 'master' of https://github.com/KingMus/hpc-aufgaben
 			newfield[calcIndex(w, x, y)] = (n == 3
 					|| (n == 2 && currentfield[calcIndex(w, x, y)]));
 
@@ -135,35 +120,7 @@ void game(int w, int h) {
 	for (t = 0; t < TimeSteps; t++) {
 		show(currentfield, w, h);
 
-#pragma omp parallel sections num_threads(4)
-		{
-
-#pragma omp section
-			{
-
-				evolve(currentfield, newfield, w / 2, h / 2, 0, 0);
-				printf("Thread %d hat berechnet \n", omp_get_thread_num());
-			}
-
-#pragma omp section
-			{
-				evolve(currentfield, newfield, w, h / 2, w / 2, 0);
-				printf("Thread %d hat berechnet \n", omp_get_thread_num());
-			}
-
-#pragma omp section
-			{
-				evolve(currentfield, newfield, w / 2, h, 0, h / 2);
-				printf("Thread %d hat berechnet \n", omp_get_thread_num());
-			}
-
-#pragma omp section
-			{
-				evolve(currentfield, newfield, w, h, w/ 2, h / 2);
-				printf("Thread %d hat berechnet \n", omp_get_thread_num());
-			}
-
-		}
+		evolve(currentfield, newfield, w, h);
 
 		printf("%ld timestep\n", t);
 
@@ -191,11 +148,6 @@ int main(int c, char **v) {
 	if (w <= 0)
 		w = 300; ///< default width
 	if (h <= 0)
-<<<<<<< HEAD
 		h = 300; ///< default height
-=======
-		h = 30; ///< default height
-
->>>>>>> branch 'master' of https://github.com/KingMus/hpc-aufgaben
 	game(w, h);
 }
