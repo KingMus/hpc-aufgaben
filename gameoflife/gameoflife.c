@@ -84,93 +84,20 @@ void show(double* currentfield, int w, int h) {
 
 void evolve(double* currentfield, double* newfield, int w, int h) {
 
-#pragma omp parallel sections num_threads(4)
-	{
+	int x, y;
 
-		//Thread 1
-#pragma omp section
-		{
+#pragma omp parallel for num_threads(12) collapse(2)
+	for (y = 0; y < h; y++) {
+		for (x = 0; x < w; x++) {
 
-			int x, y;
-			//	int berechneteHoehe = calcIndex(w, w, (h/2))/2;
-			for (y = 0; y < h / 2; y++) {
-				for (x = 0; x < w / 2; x++) {
+			int n = countLifingsPeriodic(currentfield, x, y, w, h);
+			if (currentfield[calcIndex(w, x, y)])
+				n--;
 
-					int n = countLifingsPeriodic(currentfield, x, y, w, h);
-					if (currentfield[calcIndex(w, x, y)])
-						n--;
-
-					newfield[calcIndex(w, x, y)] = (n == 3
-							|| (n == 2 && currentfield[calcIndex(w, x, y)]));
-
-				}
-			}
-
-			printf("Thread %d hat berechnet \n", omp_get_thread_num());
-		}
-
-		//Thread 2
-#pragma omp section
-		{
-
-			int x, y;
-			//int halbeHoehe = calcIndex(w, w, (h/2));
-			for (y = h / 2; y < h; y++) {
-				for (x = 0; x < w / 2; x++) {
-
-					int n = countLifingsPeriodic(currentfield, x, y, w, h);
-					if (currentfield[calcIndex(w, x, y)])
-						n--;
-
-					newfield[calcIndex(w, x, y)] = (n == 3
-							|| (n == 2 && currentfield[calcIndex(w, x, y)]));
-
-				}
-			}
-			printf("Thread %d hat berechnet \n", omp_get_thread_num());
+			newfield[calcIndex(w, x, y)] = (n == 3
+					|| (n == 2 && currentfield[calcIndex(w, x, y)]));
 
 		}
-
-		//Thread 3
-#pragma omp section
-		{
-			int x, y;
-			for (y = 0; y < h / 2; y++) {
-				for (x = w / 2; x < w; x++) {
-
-					int n = countLifingsPeriodic(currentfield, x, y, w, h);
-					if (currentfield[calcIndex(w, x, y)])
-						n--;
-
-					newfield[calcIndex(w, x, y)] = (n == 3
-							|| (n == 2 && currentfield[calcIndex(w, x, y)]));
-
-				}
-			}
-
-			printf("Thread %d hat berechnet \n", omp_get_thread_num());
-		}
-
-		//Thread 4
-#pragma omp section
-		{
-			int x, y;
-			for (y = h / 2; y < h; y++) {
-				for (x = 2 / 2; x < w; x++) {
-
-					int n = countLifingsPeriodic(currentfield, x, y, w, h);
-					if (currentfield[calcIndex(w, x, y)])
-						n--;
-
-					newfield[calcIndex(w, x, y)] = (n == 3
-							|| (n == 2 && currentfield[calcIndex(w, x, y)]));
-
-				}
-			}
-			printf("Thread %d hat berechnet \n", omp_get_thread_num());
-		}
-
-
 	}
 
 }
@@ -219,8 +146,8 @@ int main(int c, char **v) {
 	if (c > 2)
 		h = atoi(v[2]); ///< read height
 	if (w <= 0)
-		w = 30; ///< default width
+		w = 300; ///< default width
 	if (h <= 0)
-		h = 30; ///< default height
+		h = 300; ///< default height
 	game(w, h);
 }
