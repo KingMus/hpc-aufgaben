@@ -126,7 +126,7 @@ void game(int w, int h) {
 
 		writeVTK2(t, currentfield, "gol", w, h);
 
-		usleep(200000);
+//		usleep(200000);
 
 		//SWAP
 		double *temp = currentfield;
@@ -137,6 +137,8 @@ void game(int w, int h) {
 	free(currentfield);
 	free(newfield);
 
+	printf("DONE");
+
 }
 
 int main(int c, char **v) {
@@ -146,8 +148,8 @@ int main(int c, char **v) {
 	if (c > 2)
 		h = atoi(v[2]); ///< read height
 	if (w <= 0)
-		w = 300; ///< default width
+		w = 200; ///< default width
 	if (h <= 0)
-		h = 300; ///< default height
+		h = 200; ///< default height
 	game(w, h);
 }
