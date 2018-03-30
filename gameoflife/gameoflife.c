@@ -12,7 +12,8 @@
 
 long TimeSteps = 100;
 
-void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
+void writeVTK2(long timestep, double *data, char prefix[1024], int wstart,
+		int hstart, long w, long h, char threadnum[1024]) {
 	char filename[2048];
 	int x, y;
 
@@ -20,10 +21,10 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 	long offsetY = 0;
 	float deltax = 1.0;
 	float deltay = 1.0;
-	long nxy = w * h * sizeof(float);
+	long nxy = (w - wstart) * (h - hstart) * sizeof(float);
 
-	snprintf(filename, sizeof(filename), "%s-%05ld%s", prefix, timestep,
-			".vti");
+	snprintf(filename, sizeof(filename), "%s-%s%05ld%s", prefix, threadnum,
+			timestep, ".vti");
 	FILE* fp = fopen(filename, "w");
 
 	fprintf(fp, "<?xml version=\"1.0\"?>\n");
@@ -31,8 +32,8 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 			"<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n");
 	fprintf(fp,
 			"<ImageData WholeExtent=\"%d %d %d %d %d %d\" Origin=\"0 0 0\" Spacing=\"%le %le %le\">\n",
-			offsetX, offsetX + w, offsetY, offsetY + h, 0, 0, deltax, deltax,
-			0.0);
+			offsetX, offsetX + (w - wstart), offsetY, offsetY + (h - hstart), 0,
+			0, deltax, deltax, 0.0);
 	fprintf(fp, "<CellData Scalars=\"%s\">\n", prefix);
 	fprintf(fp,
 			"<DataArray type=\"Float32\" Name=\"%s\" format=\"appended\" offset=\"0\"/>\n",
@@ -43,9 +44,12 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 	fprintf(fp, "_");
 	fwrite((unsigned char*) &nxy, sizeof(long), 1, fp);
 
-	for (y = 0; y < h; y++) {
-		for (x = 0; x < w; x++) {
-			float value = data[calcIndex(h, x, y)];
+	for (y = hstart; y < h; y++) {
+		for (x = wstart; x < w; x++) {
+
+			int correctIndex = getCorrectIndex(w, h, threadnum);
+			float value = data[calcIndex(correctIndex, x, y)];
+
 			fwrite((unsigned char*) &value, sizeof(float), 1, fp);
 		}
 	}
@@ -53,6 +57,17 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 	fprintf(fp, "\n</AppendedData>\n");
 	fprintf(fp, "</VTKFile>\n");
 	fclose(fp);
+}
+
+int getCorrectIndex(long w, long h, char threadnum[1024]) {
+	long correctIndex = w;
+	if (h > correctIndex) {
+		correctIndex = h;
+	}
+	if (threadnum == "_t1_") {
+		correctIndex = h * 2;
+	}
+	return correctIndex;
 }
 
 int countLifingsPeriodic(double* currentfield, int x, int y, int w, int h) {
@@ -82,39 +97,105 @@ void show(double* currentfield, int w, int h) {
 	fflush(stdout);
 }
 
-void evolve(double* currentfield, double* newfield, int w, int h, int x_start,
-		int y_start) {
+void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 
-	int x, y;
-<<<<<<< HEAD
-=======
-	for (y = y_start; y < h; y++) {
-		for (x = x_start; x < w; x++) {
->>>>>>> branch 'master' of https://github.com/KingMus/hpc-aufgaben
+#pragma omp parallel sections num_threads(4)
+	{
 
-<<<<<<< HEAD
-#pragma omp parallel for num_threads(12) collapse(2)
-	for (y = 0; y < h; y++) {
-		for (x = 0; x < w; x++) {
-=======
-			int n = countLifingsPeriodic(currentfield, x, y, w, h);
-			if (currentfield[calcIndex(w, x, y)])
-				n--;
->>>>>>> branch 'master' of https://github.com/KingMus/hpc-aufgaben
+		//Thread 1
+#pragma omp section
+		{
 
-<<<<<<< HEAD
-			int n = countLifingsPeriodic(currentfield, x, y, w, h);
-			if (currentfield[calcIndex(w, x, y)])
-				n--;
+			int xstart, ystart, xende, yende;
 
-=======
->>>>>>> branch 'master' of https://github.com/KingMus/hpc-aufgaben
-			newfield[calcIndex(w, x, y)] = (n == 3
-					|| (n == 2 && currentfield[calcIndex(w, x, y)]));
+			xstart = 0;
+			xende = w / 2;
+			ystart = 0;
+			yende = h / 2;
+
+			evolveOneStep(ystart, yende,xstart, xende, w, h,
+								currentfield, newfield);
+
+			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
+					"_t1_");
+			printf("Thread %d calulated \n", omp_get_thread_num());
+		}
+
+		//Thread 2
+#pragma omp section
+		{
+
+			int xstart, ystart, xende, yende;
+
+			xstart = 0;
+			xende = w / 2;
+			ystart = h / 2;
+			yende = h;
+
+			evolveOneStep(ystart, yende,xstart, xende, w, h,
+								currentfield, newfield);
+
+			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
+					"_t2_");
+			printf("Thread %d calulated \n", omp_get_thread_num());
 
 		}
+
+		//Thread 3
+#pragma omp section
+		{
+			int xstart, ystart, xende, yende;
+
+			xstart = w / 2;
+			xende = w;
+			ystart = 0;
+			yende = h / 2;
+
+			evolveOneStep(ystart, yende,xstart, xende, w, h,
+								currentfield, newfield);
+
+			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
+					"_t3_");
+			printf("Thread %d calulated \n", omp_get_thread_num());
+		}
+
+		//Thread 4
+#pragma omp section
+		{
+
+			int xstart, ystart, xende, yende;
+
+			xstart = w / 2;
+			xende = w;
+			ystart = h / 2;
+			yende = h;
+
+			evolveOneStep(ystart, yende,xstart, xende, w, h,
+					currentfield, newfield);
+
+			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
+					"_t4_");
+
+			printf("Thread %d calulated \n", omp_get_thread_num());
+		}
+
 	}
 
+}
+
+void evolveOneStep(int ystart, int yende, int xstart, int xende, int w, int h, double* currentfield, double* newfield) {
+
+	int x, y;
+	for (y = ystart; y < yende; y++) {
+		for (x = xstart; x < xende; x++) {
+			int n = countLifingsPeriodic(currentfield, x, y, w, h);
+			if (currentfield[calcIndex(w, x, y)])
+				n--;
+
+			newfield[calcIndex(w, x, y)] = (n == 3
+					|| (n == 2 && currentfield[calcIndex(w, x, y)]));
+		}
+	}
 }
 
 void filling(double* currentfield, int w, int h) {
@@ -135,39 +216,9 @@ void game(int w, int h) {
 	for (t = 0; t < TimeSteps; t++) {
 		show(currentfield, w, h);
 
-#pragma omp parallel sections num_threads(4)
-		{
-
-#pragma omp section
-			{
-
-				evolve(currentfield, newfield, w / 2, h / 2, 0, 0);
-				printf("Thread %d hat berechnet \n", omp_get_thread_num());
-			}
-
-#pragma omp section
-			{
-				evolve(currentfield, newfield, w, h / 2, w / 2, 0);
-				printf("Thread %d hat berechnet \n", omp_get_thread_num());
-			}
-
-#pragma omp section
-			{
-				evolve(currentfield, newfield, w / 2, h, 0, h / 2);
-				printf("Thread %d hat berechnet \n", omp_get_thread_num());
-			}
-
-#pragma omp section
-			{
-				evolve(currentfield, newfield, w, h, w/ 2, h / 2);
-				printf("Thread %d hat berechnet \n", omp_get_thread_num());
-			}
-
-		}
+		evolve(currentfield, newfield, w, h, t);
 
 		printf("%ld timestep\n", t);
-
-		writeVTK2(t, currentfield, "gol", w, h);
 
 		usleep(200000);
 
@@ -180,6 +231,8 @@ void game(int w, int h) {
 	free(currentfield);
 	free(newfield);
 
+	printf("DONE");
+
 }
 
 int main(int c, char **v) {
@@ -189,13 +242,10 @@ int main(int c, char **v) {
 	if (c > 2)
 		h = atoi(v[2]); ///< read height
 	if (w <= 0)
-		w = 300; ///< default width
+		w = 30; ///< default width
 	if (h <= 0)
-<<<<<<< HEAD
-		h = 300; ///< default height
-=======
 		h = 30; ///< default height
 
->>>>>>> branch 'master' of https://github.com/KingMus/hpc-aufgaben
 	game(w, h);
+
 }
