@@ -86,29 +86,13 @@ void evolve(double* currentfield, double* newfield, int w, int h, int x_start,
 		int y_start) {
 
 	int x, y;
-<<<<<<< HEAD
-=======
 	for (y = y_start; y < h; y++) {
 		for (x = x_start; x < w; x++) {
->>>>>>> branch 'master' of https://github.com/KingMus/hpc-aufgaben
 
-<<<<<<< HEAD
-#pragma omp parallel for num_threads(12) collapse(2)
-	for (y = 0; y < h; y++) {
-		for (x = 0; x < w; x++) {
-=======
-			int n = countLifingsPeriodic(currentfield, x, y, w, h);
-			if (currentfield[calcIndex(w, x, y)])
-				n--;
->>>>>>> branch 'master' of https://github.com/KingMus/hpc-aufgaben
-
-<<<<<<< HEAD
 			int n = countLifingsPeriodic(currentfield, x, y, w, h);
 			if (currentfield[calcIndex(w, x, y)])
 				n--;
 
-=======
->>>>>>> branch 'master' of https://github.com/KingMus/hpc-aufgaben
 			newfield[calcIndex(w, x, y)] = (n == 3
 					|| (n == 2 && currentfield[calcIndex(w, x, y)]));
 
@@ -189,13 +173,10 @@ int main(int c, char **v) {
 	if (c > 2)
 		h = atoi(v[2]); ///< read height
 	if (w <= 0)
-		w = 300; ///< default width
+		w = 30; ///< default width
 	if (h <= 0)
-<<<<<<< HEAD
-		h = 300; ///< default height
-=======
 		h = 30; ///< default height
 
->>>>>>> branch 'master' of https://github.com/KingMus/hpc-aufgaben
 	game(w, h);
+
 }
