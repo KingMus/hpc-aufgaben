@@ -12,7 +12,8 @@
 
 long TimeSteps = 100;
 
-void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
+void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h,
+		char threadnum[1024]) {
 	char filename[2048];
 	int x, y;
 
@@ -22,8 +23,7 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 	float deltay = 1.0;
 	long nxy = w * h * sizeof(float);
 
-	snprintf(filename, sizeof(filename), "%s-%05ld%s", prefix, timestep,
-			".vti");
+	snprintf(filename, sizeof(filename), "%s-%s%05ld%s", prefix, threadnum, timestep, ".vti");
 	FILE* fp = fopen(filename, "w");
 
 	fprintf(fp, "<?xml version=\"1.0\"?>\n");
@@ -126,32 +126,38 @@ void game(int w, int h) {
 			{
 
 				evolve(currentfield, newfield, w / 2, h / 2, 0, 0);
+				writeVTK2(t, currentfield, "gol", w / 2, h / 2, "_t1_");
+
 				printf("Thread %d hat berechnet \n", omp_get_thread_num());
 			}
 
 #pragma omp section
 			{
 				evolve(currentfield, newfield, w, h / 2, w / 2, 0);
+				writeVTK2(t, currentfield, "gol", w / 2, h / 2, "_t2_");
+
 				printf("Thread %d hat berechnet \n", omp_get_thread_num());
 			}
 
 #pragma omp section
 			{
 				evolve(currentfield, newfield, w / 2, h, 0, h / 2);
+				writeVTK2(t, currentfield, "gol", w / 2, h / 2, "_t3_");
+
 				printf("Thread %d hat berechnet \n", omp_get_thread_num());
 			}
 
 #pragma omp section
 			{
-				evolve(currentfield, newfield, w, h, w/ 2, h / 2);
+				evolve(currentfield, newfield, w, h, w / 2, h / 2);
+				writeVTK2(t, currentfield, "gol", w / 2, h / 2, "_t4_");
+
 				printf("Thread %d hat berechnet \n", omp_get_thread_num());
 			}
 
 		}
 
 		printf("%ld timestep\n", t);
-
-		writeVTK2(t, currentfield, "gol", w, h);
 
 		usleep(200000);
 
