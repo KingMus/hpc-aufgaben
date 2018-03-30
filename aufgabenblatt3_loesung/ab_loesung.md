@@ -1,8 +1,16 @@
+# AUFGABENBLATT 3
+
+In diesem Dokument finden sich die Berechnungen zu AB-3. Es verwendet die Bilder aus src-bilder.
+
+<hr>
+
 ## Aufgabe 1
 
 * Lohnt es sich das Programm zu parallelisieren und wie lange braucht es dann?
 * Skalierbarkeit abschätzen
 * Kosten abschätzen
+
+<hr>
 
 ## Aufgabe 2
 
@@ -19,6 +27,8 @@
 Dies kann an einem dadurch entstehenden Overhead erklärt werden. <br>
 > **Testreihe 2** zeigt einen einen Effizienzrückgang nachdem eine gewisse Menge an Recheneinheiten überschritten wurde. <br>
 > **Testreihe 3** zeigt ebenfalls einen sinkenden Effiziensanstieg, allerdings bewegen sich die Messungen näher am idealen Speedup. <br>
+
+<hr>
 
 ## Aufgabe 3
 
@@ -39,6 +49,8 @@ Dies kann an einem dadurch entstehenden Overhead erklärt werden. <br>
 Ein weiteres Erhöhen der Recheneinheiten wird (durch das Diagramm abschätzbar) wahrscheinlich nichts mehr bewirken. <br>
 > **Testreihe 2** zeigt dasselbe wie das Diagramm zu Testreihe 1. <br>
 
+<hr>
+
 ## Aufgabe 4 - Gustafsons Gesetz
 
 ![Berechnung4](https://github.com/KingMus/hpc-aufgaben/blob/master/aufgabenblatt3_loesung/scr_bilder/AB3_Aufgabe4.png)
@@ -52,6 +64,5 @@ Ein weiteres Erhöhen der Recheneinheiten wird (durch das Diagramm abschätzbar)
 
 ##### Aussage zu Diagrammen:
 
-> **Testreihe 1** zeigt einen kleinen Anstieg, bleibt aber danach auf einem Level.
-Ein weiteres Erhöhen der Recheneinheiten wird (durch das Diagramm abschätzbar) wahrscheinlich nichts mehr bewirken. <br>
-> **Testreihe 2** zeigt dasselbe wie das Diagramm zu Testreihe 1. <br>
+> **Testreihe 1** zeigt einen linearen Anstieg des Speedups. Wahrscheinlich bleibt dieser Effekt auch mit mehr Recheneinheiten eine Zeit lang bestehen. <br>
+> **Testreihe 2** zeigt dasselbe wie das Diagramm zu Testreihe 1, nur mit einem schwächeren Anstieg (also entfernter vom Optimum). <br>
