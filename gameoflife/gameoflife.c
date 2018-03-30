@@ -47,17 +47,8 @@ void writeVTK2(long timestep, double *data, char prefix[1024], int wstart,
 	for (y = hstart; y < h; y++) {
 		for (x = wstart; x < w; x++) {
 
-			long max = w;
-
-			if (h > max) {
-				max = h;
-			}
-
-			if(threadnum == "_t1_"){
-				max = h*2;
-			}
-
-			float value = data[calcIndex(max, x, y)];
+			int correctIndex = getCorrectIndex(w, h, threadnum);
+			float value = data[calcIndex(correctIndex, x, y)];
 
 			fwrite((unsigned char*) &value, sizeof(float), 1, fp);
 		}
@@ -66,6 +57,17 @@ void writeVTK2(long timestep, double *data, char prefix[1024], int wstart,
 	fprintf(fp, "\n</AppendedData>\n");
 	fprintf(fp, "</VTKFile>\n");
 	fclose(fp);
+}
+
+int getCorrectIndex(long w, long h, char threadnum[1024]) {
+	long correctIndex = w;
+	if (h > correctIndex) {
+		correctIndex = h;
+	}
+	if (threadnum == "_t1_") {
+		correctIndex = h * 2;
+	}
+	return correctIndex;
 }
 
 int countLifingsPeriodic(double* currentfield, int x, int y, int w, int h) {
@@ -104,8 +106,6 @@ void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 #pragma omp section
 		{
 
-			int x, y;
-
 			int xstart, ystart, xende, yende;
 
 			xstart = 0;
@@ -113,30 +113,18 @@ void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 			ystart = 0;
 			yende = h / 2;
 
-			for (y = ystart; y < yende; y++) {
-				for (x = xstart; x < xende; x++) {
-
-					int n = countLifingsPeriodic(currentfield, x, y, w, h);
-					if (currentfield[calcIndex(w, x, y)])
-						n--;
-
-					newfield[calcIndex(w, x, y)] = (n == 3
-							|| (n == 2 && currentfield[calcIndex(w, x, y)]));
-
-				}
-			}
+			evolveOneStep(ystart, yende,xstart, xende, w, h,
+								currentfield, newfield);
 
 			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
 					"_t1_");
-			printf("Thread %d hat berechnet \n", omp_get_thread_num());
+			printf("Thread %d calulated \n", omp_get_thread_num());
 		}
 
 		//Thread 2
 #pragma omp section
 		{
 
-			int x, y;
-
 			int xstart, ystart, xende, yende;
 
 			xstart = 0;
@@ -144,30 +132,18 @@ void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 			ystart = h / 2;
 			yende = h;
 
-			for (y = ystart; y < yende; y++) {
-				for (x = xstart; x < xende; x++) {
-
-					int n = countLifingsPeriodic(currentfield, x, y, w, h);
-					if (currentfield[calcIndex(w, x, y)])
-						n--;
-
-					newfield[calcIndex(w, x, y)] = (n == 3
-							|| (n == 2 && currentfield[calcIndex(w, x, y)]));
-
-				}
-			}
+			evolveOneStep(ystart, yende,xstart, xende, w, h,
+								currentfield, newfield);
 
 			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
 					"_t2_");
-			printf("Thread %d hat berechnet \n", omp_get_thread_num());
+			printf("Thread %d calulated \n", omp_get_thread_num());
 
 		}
 
 		//Thread 3
 #pragma omp section
 		{
-			int x, y;
-
 			int xstart, ystart, xende, yende;
 
 			xstart = w / 2;
@@ -175,28 +151,17 @@ void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 			ystart = 0;
 			yende = h / 2;
 
-			for (y = ystart; y < yende; y++) {
-				for (x = xstart; x < xende; x++) {
-
-					int n = countLifingsPeriodic(currentfield, x, y, w, h);
-					if (currentfield[calcIndex(w, x, y)])
-						n--;
-
-					newfield[calcIndex(w, x, y)] = (n == 3
-							|| (n == 2 && currentfield[calcIndex(w, x, y)]));
-
-				}
-			}
+			evolveOneStep(ystart, yende,xstart, xende, w, h,
+								currentfield, newfield);
 
 			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
 					"_t3_");
-			printf("Thread %d hat berechnet \n", omp_get_thread_num());
+			printf("Thread %d calulated \n", omp_get_thread_num());
 		}
 
 		//Thread 4
 #pragma omp section
 		{
-			int x, y;
 
 			int xstart, ystart, xende, yende;
 
@@ -205,26 +170,32 @@ void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 			ystart = h / 2;
 			yende = h;
 
-			for (y = ystart; y < yende; y++) {
-				for (x = xstart; x < xende; x++) {
-
-					int n = countLifingsPeriodic(currentfield, x, y, w, h);
-					if (currentfield[calcIndex(w, x, y)])
-						n--;
-
-					newfield[calcIndex(w, x, y)] = (n == 3
-							|| (n == 2 && currentfield[calcIndex(w, x, y)]));
-
-				}
-			}
+			evolveOneStep(ystart, yende,xstart, xende, w, h,
+					currentfield, newfield);
 
 			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
 					"_t4_");
-			printf("Thread %d hat berechnet \n", omp_get_thread_num());
+
+			printf("Thread %d calulated \n", omp_get_thread_num());
 		}
 
 	}
 
+}
+
+void evolveOneStep(int ystart, int yende, int xstart, int xende, int w, int h, double* currentfield, double* newfield) {
+
+	int x, y;
+	for (y = ystart; y < yende; y++) {
+		for (x = xstart; x < xende; x++) {
+			int n = countLifingsPeriodic(currentfield, x, y, w, h);
+			if (currentfield[calcIndex(w, x, y)])
+				n--;
+
+			newfield[calcIndex(w, x, y)] = (n == 3
+					|| (n == 2 && currentfield[calcIndex(w, x, y)]));
+		}
+	}
 }
 
 void filling(double* currentfield, int w, int h) {
@@ -259,6 +230,8 @@ void game(int w, int h) {
 
 	free(currentfield);
 	free(newfield);
+
+	printf("DONE");
 
 }
 
