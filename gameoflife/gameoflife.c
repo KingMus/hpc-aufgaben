@@ -112,13 +112,53 @@ void filling(double* currentfield, int w, int h) {
 	}
 }
 
+double* readFromFile(char filename[256], int w, int h) {
+	FILE* file = fopen(filename, "r"); //read mode
+
+	double* field = calloc((w * h), sizeof(double));
+
+	int size = w * h;
+	int symbol;
+
+	size_t len = 0;
+	size_t width = 0;
+	size_t height = 0;
+
+	while ((symbol = fgetc(file)) != EOF) {
+		if (symbol == '\n') {
+			if (!width)
+				width = len;
+			height++;
+			continue;
+		}
+		if (symbol == 'X')
+			field[len++] = 1;
+		if (symbol == '_')
+			field[len++] = 0;
+
+		// resize
+		if (len == size) {
+			field = realloc(field, sizeof(double) * (size += 10));
+		}
+	}
+	height++;
+
+	field = realloc(field, sizeof(*field) * len);
+
+	fclose(file);
+	return field;
+}
+
 void game(int w, int h) {
-	double *currentfield = calloc(w * h, sizeof(double));
+//	double *currentfield = calloc(w * h, sizeof(double));
 	double *newfield = calloc(w * h, sizeof(double));
 
 //printf("size unsigned %d, size long %d\n",sizeof(float), sizeof(long));
 
-	filling(currentfield, w, h);
+//	filling(currentfield, w, h);
+	double *currentfield = readFromFile("input_gol", w, h);
+
+
 	long t;
 	for (t = 0; t < TimeSteps; t++) {
 		show(currentfield, w, h);
@@ -151,8 +191,8 @@ int main(int c, char **v) {
 	if (c > 2)
 		h = atoi(v[2]); ///< read height
 	if (w <= 0)
-		w = 50; ///< default width
+		w = 10; ///< default width
 	if (h <= 0)
-		h = 50; ///< default height
+		h = 10; ///< default height
 	game(w, h);
 }
