@@ -23,8 +23,11 @@ void writeVTK2(long timestep, double *data, char prefix[1024], int wstart,
 	float deltay = 1.0;
 	long nxy = (w - wstart) * (h - hstart) * sizeof(float);
 
-	snprintf(filename, sizeof(filename), "%s-%s%05ld%s", prefix, threadnum,
+	mkdir("vtk_folder", 0777);
+
+	snprintf(filename, sizeof(filename), "%s%s-%s%05ld%s","vtk_folder/", prefix, threadnum,
 			timestep, ".vti");
+
 	FILE* fp = fopen(filename, "w");
 
 	fprintf(fp, "<?xml version=\"1.0\"?>\n");
@@ -44,12 +47,12 @@ void writeVTK2(long timestep, double *data, char prefix[1024], int wstart,
 	fprintf(fp, "_");
 	fwrite((unsigned char*) &nxy, sizeof(long), 1, fp);
 
-	for (y = hstart; y < h; y++) {
-		for (x = wstart; x < w; x++) {
+	for (x = wstart; x < w; x++) {
+		for (y = hstart; y < h; y++) {
 
 			int correctIndex = getCorrectIndex(w, h, threadnum);
 
-			float value = data[calcIndex(correctIndex, x, y)];
+			float value = data[calcIndex(correctIndex, y, x)];
 
 			fwrite((unsigned char*) &value, sizeof(float), 1, fp);
 		}
@@ -114,8 +117,8 @@ void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 			ystart = 0;
 			yende = h / 2;
 
-			evolveOneStep(ystart, yende,xstart, xende, w, h,
-								currentfield, newfield);
+			evolveOneStep(ystart, yende, xstart, xende, w, h, currentfield,
+					newfield);
 
 			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
 					"_t1_");
@@ -133,8 +136,8 @@ void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 			ystart = h / 2;
 			yende = h;
 
-			evolveOneStep(ystart, yende,xstart, xende, w, h,
-								currentfield, newfield);
+			evolveOneStep(ystart, yende, xstart, xende, w, h, currentfield,
+					newfield);
 
 			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
 					"_t2_");
@@ -152,8 +155,8 @@ void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 			ystart = 0;
 			yende = h / 2;
 
-			evolveOneStep(ystart, yende,xstart, xende, w, h,
-								currentfield, newfield);
+			evolveOneStep(ystart, yende, xstart, xende, w, h, currentfield,
+					newfield);
 
 			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
 					"_t3_");
@@ -171,8 +174,8 @@ void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 			ystart = h / 2;
 			yende = h;
 
-			evolveOneStep(ystart, yende,xstart, xende, w, h,
-					currentfield, newfield);
+			evolveOneStep(ystart, yende, xstart, xende, w, h, currentfield,
+					newfield);
 
 			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
 					"_t4_");
@@ -184,7 +187,8 @@ void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 
 }
 
-void evolveOneStep(int ystart, int yende, int xstart, int xende, int w, int h, double* currentfield, double* newfield) {
+void evolveOneStep(int ystart, int yende, int xstart, int xende, int w, int h,
+		double* currentfield, double* newfield) {
 
 	int x, y;
 	for (y = ystart; y < yende; y++) {
@@ -206,13 +210,53 @@ void filling(double* currentfield, int w, int h) {
 	}
 }
 
+double* readFromFile(char filename[256], int w, int h) {
+	FILE* file = fopen(filename, "r"); //read mode
+
+	double* field = calloc((w * h), sizeof(double));
+
+	int size = w * h;
+	int symbol;
+
+	size_t len = 0;
+	size_t width = 0;
+	size_t height = 0;
+
+	while ((symbol = fgetc(file)) != EOF) {
+		if (symbol == '\n') {
+			if (!width)
+				width = len;
+			height++;
+			continue;
+		}
+		if (symbol == 'X')
+			field[len++] = 1;
+		if (symbol == '_')
+			field[len++] = 0;
+
+		// resize
+		if (len == size) {
+			field = realloc(field, sizeof(double) * (size += 10));
+		}
+	}
+	height++;
+
+	field = realloc(field, sizeof(*field) * len);
+
+	fclose(file);
+	return field;
+}
+
 void game(int w, int h) {
-	double *currentfield = calloc(w * h, sizeof(double));
+//	double *currentfield = calloc(w * h, sizeof(double));
 	double *newfield = calloc(w * h, sizeof(double));
 
 //printf("size unsigned %d, size long %d\n",sizeof(float), sizeof(long));
 
-	filling(currentfield, w, h);
+//	filling(currentfield, w, h);
+
+	double *currentfield = readFromFile("input_gol", w, h);
+
 	long t;
 	for (t = 0; t < TimeSteps; t++) {
 		show(currentfield, w, h);
@@ -243,9 +287,9 @@ int main(int c, char **v) {
 	if (c > 2)
 		h = atoi(v[2]); ///< read height
 	if (w <= 0)
-		w = 40; ///< default width
+		w = 20; ///< default width
 	if (h <= 0)
-		h = 40; ///< default height
+		h = 20; ///< default height
 
 	game(w, h);
 
