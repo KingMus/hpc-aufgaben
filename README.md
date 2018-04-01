@@ -1,5 +1,7 @@
 # hpc-aufgaben
-Aufgaben der Vorlesung High Perfomance Computing
+Aufgaben der Vorlesung High Performance Computing 2018
+
+<hr>
 
 #### Branches
 
@@ -9,7 +11,7 @@ Der Name gibt in etwa vor, bei welcher Aufgabe der Branch Relevanz hat.
 ###### gol_parallelfor
 
 AB2 umgesetzt mit omp_parallel_for. Entspricht nicht unbedingt dem gewünschten Ergebnis,
-da keine eigenen Dateien geschrieben werden, funkioniert aber sehr gut.
+da keine eigenen Dateien für jeden Thread geschrieben werden, funktioniert aber an sich sehr gut.
 
 ###### gol_sectionsplitting
 
