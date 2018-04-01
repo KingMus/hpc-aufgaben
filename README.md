@@ -15,3 +15,4 @@ da keine eigenen Dateien geschrieben werden, funkioniert aber sehr gut.
 
 AB2 umgesetzt mit omp_section. Je nach Auslegung des Arbeitsblattes eine mögliche Lösung.
 Keine Möglichkeit der flexiblen Threadanzahl (immer 4), dafür aber mit Ausgabe.
+Branch geschlossen, findet sich im Master-Gol.
