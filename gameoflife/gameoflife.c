@@ -10,7 +10,7 @@
 
 #define calcIndex(width, x,y)  ((y)*(width) + (x))
 
-long TimeSteps = 300;
+long TimeSteps = 100;
 
 void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 	char filename[2048];
@@ -22,8 +22,11 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 	float deltay = 1.0;
 	long nxy = w * h * sizeof(float);
 
-	snprintf(filename, sizeof(filename), "%s-%05ld%s", prefix, timestep,
+	mkdir("vtk_folder", 0777);
+
+	snprintf(filename, sizeof(filename), "%s%s-%05ld%s", "vtk_folder/" , prefix, timestep,
 			".vti");
+
 	FILE* fp = fopen(filename, "w");
 
 	fprintf(fp, "<?xml version=\"1.0\"?>\n");
@@ -148,8 +151,8 @@ int main(int c, char **v) {
 	if (c > 2)
 		h = atoi(v[2]); ///< read height
 	if (w <= 0)
-		w = 200; ///< default width
+		w = 50; ///< default width
 	if (h <= 0)
-		h = 200; ///< default height
+		h = 50; ///< default height
 	game(w, h);
 }
