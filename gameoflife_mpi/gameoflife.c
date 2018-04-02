@@ -14,7 +14,14 @@
 
 long TimeSteps = 100;
 
-void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
+/*
+ * Bezueglich des Ghost-Randes:
+ * Keine Ausgabe des Ghostrandes, der muss rausgerechnet werden.
+ * Sonst sind die Randfelder doppelt vorhanden und jede Datei ist größer als sie sein muss.
+ */
+
+void writeVTK2(long timestep, double *data, char prefix[1024], int wstart,
+		int hstart, long w, long h, char threadnum[1024]) {
 	char filename[2048];
 	int x, y;
 
@@ -22,10 +29,13 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 	long offsetY = 0;
 	float deltax = 1.0;
 	float deltay = 1.0;
-	long nxy = w * h * sizeof(float);
+	long nxy = (w - wstart) * (h - hstart) * sizeof(float);
 
-	snprintf(filename, sizeof(filename), "%s-%05ld%s", prefix, timestep,
-			".vti");
+	mkdir("vtk_folder", 0777);
+
+	snprintf(filename, sizeof(filename), "%s%s-%s%05ld%s","vtk_folder/", prefix, threadnum,
+			timestep, ".vti");
+
 	FILE* fp = fopen(filename, "w");
 
 	fprintf(fp, "<?xml version=\"1.0\"?>\n");
@@ -33,8 +43,8 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 			"<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n");
 	fprintf(fp,
 			"<ImageData WholeExtent=\"%d %d %d %d %d %d\" Origin=\"0 0 0\" Spacing=\"%le %le %le\">\n",
-			offsetX, offsetX + w, offsetY, offsetY + h, 0, 0, deltax, deltax,
-			0.0);
+			offsetX, offsetX + (w - wstart), offsetY, offsetY + (h - hstart), 0,
+			0, deltax, deltax, 0.0);
 	fprintf(fp, "<CellData Scalars=\"%s\">\n", prefix);
 	fprintf(fp,
 			"<DataArray type=\"Float32\" Name=\"%s\" format=\"appended\" offset=\"0\"/>\n",
@@ -45,9 +55,13 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 	fprintf(fp, "_");
 	fwrite((unsigned char*) &nxy, sizeof(long), 1, fp);
 
-	for (y = 0; y < h; y++) {
-		for (x = 0; x < w; x++) {
-			float value = data[calcIndex(h, x, y)];
+	for (x = wstart; x < w; x++) {
+		for (y = hstart; y < h; y++) {
+
+			int correctIndex = getCorrectIndex(w, h, threadnum);
+
+			float value = data[calcIndex(correctIndex, y, x)];
+
 			fwrite((unsigned char*) &value, sizeof(float), 1, fp);
 		}
 	}
@@ -55,6 +69,17 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h) {
 	fprintf(fp, "\n</AppendedData>\n");
 	fprintf(fp, "</VTKFile>\n");
 	fclose(fp);
+}
+
+int getCorrectIndex(long w, long h, char threadnum[1024]) {
+	long correctIndex = w;
+	if (h > correctIndex) {
+		correctIndex = h;
+	}
+	if (threadnum == "_r0_") {
+		correctIndex = h * 2;
+	}
+	return correctIndex;
 }
 
 void show(double* currentfield, int w, int h) {
@@ -120,18 +145,37 @@ void game(int w, int h) {
 
 	if (rank == 0) {
 
+		int xstart, ystart, xende, yende;
+
+		xstart = 0;
+		xende = w / 2;
+		ystart = 0;
+		yende = h / 2;
+
 		printf("my rank: %d\n", rank);
 
-		int * rankleft;
+		int *rankleft;
 		int *rankright;
 
 		MPI_Cart_shift(comm_cart, 1, 1, &rankleft, &rankright);
 
-		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft, rankright);
+		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft,
+				rankright);
+
+		 writeVTK2(TimeSteps, currentfield, "gol", xstart, ystart, xende, yende,
+		 "_r0_");
+
 
 	}
 	if (rank == 1) {
 
+		int xstart, ystart, xende, yende;
+
+		xstart = 0;
+		xende = w / 2;
+		ystart = h / 2;
+		yende = h;
+
 		printf("my rank: %d\n", rank);
 
 		int * rankleft;
@@ -139,11 +183,24 @@ void game(int w, int h) {
 
 		MPI_Cart_shift(comm_cart, 1, 1, &rankleft, &rankright);
 
-		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft, rankright);
+		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft,
+				rankright);
+
+				writeVTK2(TimeSteps, currentfield, "gol", xstart, ystart, xende, yende,
+		 "_r1_");
+
+
 
 	}
 	if (rank == 2) {
 
+		int xstart, ystart, xende, yende;
+
+		xstart = w / 2;
+		xende = w;
+		ystart = 0;
+		yende = h / 2;
+
 		printf("my rank: %d\n", rank);
 
 		int * rankleft;
@@ -151,11 +208,24 @@ void game(int w, int h) {
 
 		MPI_Cart_shift(comm_cart, 1, 1, &rankleft, &rankright);
 
-		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft, rankright);
+		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft,
+				rankright);
+
+			writeVTK2(TimeSteps, currentfield, "gol", xstart, ystart, xende, yende,
+		 "_r2_");
+
+
 
 	}
 	if (rank == 3) {
 
+		int xstart, ystart, xende, yende;
+
+		xstart = w / 2;
+		xende = w;
+		ystart = h / 2;
+		yende = h;
+
 		printf("my rank: %d\n", rank);
 
 		int * rankleft;
@@ -163,7 +233,12 @@ void game(int w, int h) {
 
 		MPI_Cart_shift(comm_cart, 1, 1, &rankleft, &rankright);
 
-		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft, rankright);
+		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft,
+				rankright);
+
+		writeVTK2(TimeSteps, currentfield, "gol", xstart, ystart, xende, yende,
+		 "_r3_");
+
 
 
 	}
