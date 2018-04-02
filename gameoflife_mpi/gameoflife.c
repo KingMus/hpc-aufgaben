@@ -99,29 +99,63 @@ void game(int w, int h) {
 	filling(currentfield, w, h);
 
 	long t;
-	int rank;
+	int rank, size;
 
 	MPI_Status statusRight;
 	MPI_Status statusLeft;
 
-	MPI_Comm comm;
+	MPI_Comm comm_cart;
 
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-	for (t = 0; t < TimeSteps; t++) {
-		show(currentfield, w, h);
-		evolve(currentfield, newfield, w, h);
+	int numProcessPerDimension[1], periodic[1], reorder;
 
-		printf("%ld timestep\n", t);
-		writeVTK2(t, currentfield, "gol", w, h);
+	periodic[0] = 1;
+	numProcessPerDimension[0] = size;
+	reorder = 1;
 
-		usleep(200000);
+	MPI_Cart_create(MPI_COMM_WORLD, 1, numProcessPerDimension, periodic,
+			reorder, &comm_cart);
 
-		//SWAP
-		double *temp = currentfield;
-		currentfield = newfield;
-		newfield = temp;
+	if (rank == 0) {
+
+		printf("my rank: %d\n", rank);
+
 	}
+	if (rank == 1) {
+
+		printf("my rank: %d\n", rank);
+
+	}
+	if (rank == 2) {
+
+		printf("my rank: %d\n", rank);
+
+	}
+	if (rank == 3) {
+
+		printf("my rank: %d\n", rank);
+
+	}
+
+	/*
+	 for (t = 0; t < TimeSteps; t++) {
+	 show(currentfield, w, h);
+	 evolve(currentfield, newfield, w, h);
+
+	 printf("%ld timestep\n", t);
+	 writeVTK2(t, currentfield, "gol", w, h);
+
+	 usleep(200000);
+
+	 //SWAP
+	 double *temp = currentfield;
+	 currentfield = newfield;
+	 newfield = temp;
+	 }
+
+	 */
 
 	free(currentfield);
 	free(newfield);
