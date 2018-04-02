@@ -1,6 +1,7 @@
 # AUFGABENBLATT 3
 
-In diesem Dokument finden sich die Berechnungen zu AB-3. Es verwendet die Bilder aus src-bilder.
+In diesem Dokument finden sich die Berechnungen zu AB-3. Es verwendet die Bilder aus src-bilder. <br>
+**HINWEIS**: Abgabe nur schriftlich, nicht digital oder ausgedruckt.
 
 <hr>
 
