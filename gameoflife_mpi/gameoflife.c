@@ -122,20 +122,49 @@ void game(int w, int h) {
 
 		printf("my rank: %d\n", rank);
 
+		int * rankleft;
+		int *rankright;
+
+		MPI_Cart_shift(comm_cart, 1, 1, &rankleft, &rankright);
+
+		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft, rankright);
+
 	}
 	if (rank == 1) {
 
 		printf("my rank: %d\n", rank);
+
+		int * rankleft;
+		int *rankright;
+
+		MPI_Cart_shift(comm_cart, 1, 1, &rankleft, &rankright);
+
+		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft, rankright);
 
 	}
 	if (rank == 2) {
 
 		printf("my rank: %d\n", rank);
 
+		int * rankleft;
+		int *rankright;
+
+		MPI_Cart_shift(comm_cart, 1, 1, &rankleft, &rankright);
+
+		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft, rankright);
+
 	}
 	if (rank == 3) {
 
 		printf("my rank: %d\n", rank);
+
+		int * rankleft;
+		int *rankright;
+
+		MPI_Cart_shift(comm_cart, 1, 1, &rankleft, &rankright);
+
+		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft, rankright);
+
 
 	}
 
