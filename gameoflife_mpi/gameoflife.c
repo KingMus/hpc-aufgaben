@@ -33,8 +33,8 @@ void writeVTK2(long timestep, double *data, char prefix[1024], int wstart,
 
 	mkdir("vtk_folder", 0777);
 
-	snprintf(filename, sizeof(filename), "%s%s-%s%05ld%s","vtk_folder/", prefix, threadnum,
-			timestep, ".vti");
+	snprintf(filename, sizeof(filename), "%s%s-%s%05ld%s", "vtk_folder/",
+			prefix, threadnum, timestep, ".vti");
 
 	FILE* fp = fopen(filename, "w");
 
@@ -143,6 +143,9 @@ void game(int w, int h) {
 	MPI_Cart_create(MPI_COMM_WORLD, 1, numProcessPerDimension, periodic,
 			reorder, &comm_cart);
 
+	int sendenRechtsGhost[h / 2];
+	int sendenLinksGhost[h / 2];
+
 	if (rank == 0) {
 
 		int xstart, ystart, xende, yende;
@@ -152,19 +155,26 @@ void game(int w, int h) {
 		ystart = 0;
 		yende = h / 2;
 
-		printf("my rank: %d\n", rank);
+
+		printf("--------------------------------------------\n");
+
+		printf("My rank: %d\n", rank);
+
+		printf("Section: von P(%d|%d) bis P(%d|%d) \n\n", xstart,ystart,xende,yende);
+		printf("Position:\n");
+		printf("X0\n");
+		printf("00\n");
 
 		int *rankleft;
 		int *rankright;
 
 		MPI_Cart_shift(comm_cart, 1, 1, &rankleft, &rankright);
 
-		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft,
+		printf("Neighbour-ranks: %d (left) - %d (right) \n\n", rankleft,
 				rankright);
 
-		 writeVTK2(TimeSteps, currentfield, "gol", xstart, ystart, xende, yende,
-		 "_r0_");
-
+		writeVTK2(TimeSteps, currentfield, "gol", xstart, ystart, xende, yende,
+				"_r0_");
 
 	}
 	if (rank == 1) {
@@ -176,19 +186,26 @@ void game(int w, int h) {
 		ystart = h / 2;
 		yende = h;
 
-		printf("my rank: %d\n", rank);
+
+		printf("--------------------------------------------\n");
+
+		printf("My rank: %d\n", rank);
+
+		printf("Section: von P(%d|%d) bis P(%d|%d) \n\n", xstart,ystart,xende,yende);
+		printf("Position:\n");
+		printf("00\n");
+		printf("X0\n");
 
 		int * rankleft;
 		int *rankright;
 
 		MPI_Cart_shift(comm_cart, 1, 1, &rankleft, &rankright);
 
-		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft,
+		printf("Neighbour-ranks: %d (left) - %d (right) \n\n", rankleft,
 				rankright);
 
-				writeVTK2(TimeSteps, currentfield, "gol", xstart, ystart, xende, yende,
-		 "_r1_");
-
+		writeVTK2(TimeSteps, currentfield, "gol", xstart, ystart, xende, yende,
+				"_r1_");
 
 
 	}
@@ -201,19 +218,26 @@ void game(int w, int h) {
 		ystart = 0;
 		yende = h / 2;
 
-		printf("my rank: %d\n", rank);
+
+		printf("--------------------------------------------\n");
+
+		printf("My rank: %d\n", rank);
+
+		printf("Section: von P(%d|%d) bis P(%d|%d) \n\n", xstart,ystart,xende,yende);
+		printf("Position:\n");
+		printf("0X\n");
+		printf("00\n");
 
 		int * rankleft;
 		int *rankright;
 
 		MPI_Cart_shift(comm_cart, 1, 1, &rankleft, &rankright);
 
-		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft,
+		printf("Neighbour-ranks: %d (left) - %d (right) \n\n", rankleft,
 				rankright);
 
-			writeVTK2(TimeSteps, currentfield, "gol", xstart, ystart, xende, yende,
-		 "_r2_");
-
+		writeVTK2(TimeSteps, currentfield, "gol", xstart, ystart, xende, yende,
+				"_r2_");
 
 
 	}
@@ -226,20 +250,27 @@ void game(int w, int h) {
 		ystart = h / 2;
 		yende = h;
 
-		printf("my rank: %d\n", rank);
+
+		printf("--------------------------------------------\n");
+
+		printf("My rank: %d\n", rank);
+
+		printf("Section: von P(%d|%d) bis P(%d|%d) \n\n", xstart,ystart,xende,yende);
+		printf("Position:\n");
+		printf("00\n");
+		printf("0X\n");
+
 
 		int * rankleft;
 		int *rankright;
 
 		MPI_Cart_shift(comm_cart, 1, 1, &rankleft, &rankright);
 
-		printf("neighbour-ranks: %d (left) - %d (right) \n\n", rankleft,
+		printf("Neighbour-ranks: %d (left) - %d (right) \n\n", rankleft,
 				rankright);
 
 		writeVTK2(TimeSteps, currentfield, "gol", xstart, ystart, xende, yende,
-		 "_r3_");
-
-
+				"_r3_");
 
 	}
 
