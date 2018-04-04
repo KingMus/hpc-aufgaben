@@ -10,7 +10,7 @@
 
 #include "/usr/include/mpi/mpi.h"
 
-#define calcIndex(width, x,y)  ((y)*(width) + (x))
+#define calcIndex(width, x,y)  ((x)*(width) + (y))
 
 long TimeSteps = 100;
 
@@ -102,13 +102,52 @@ void filling(double* currentfield, int w, int h) {
 	}
 }
 
+double* readFromFile(char filename[256], int w, int h) {
+	FILE* file = fopen(filename, "r"); //read mode
+
+	double* field = calloc((w * h), sizeof(double));
+
+	int size = w * h;
+	int symbol;
+
+	size_t len = 0;
+	size_t width = 0;
+	size_t height = 0;
+
+	while ((symbol = fgetc(file)) != EOF) {
+		if (symbol == '\n') {
+			if (!width)
+				width = len;
+			height++;
+			continue;
+		}
+		if (symbol == 'X')
+			field[len++] = 1;
+		if (symbol == '_')
+			field[len++] = 0;
+
+		// resize
+		if (len == size) {
+			field = realloc(field, sizeof(double) * (size += 10));
+		}
+	}
+	height++;
+
+	field = realloc(field, sizeof(*field) * len);
+
+	fclose(file);
+	return field;
+}
+
 void game(int w, int h) {
-	double *currentfield = calloc(w * h, sizeof(double));
+//	double *currentfield = calloc(w * h, sizeof(double));
 	double *newfield = calloc(w * h, sizeof(double));
 
-	//printf("size unsigned %d, size long %d\n",sizeof(float), sizeof(long));
+//	printf("size unsigned %d, size long %d\n",sizeof(float), sizeof(long));
 
-	filling(currentfield, w, h);
+//	filling(currentfield, w, h);
+
+	double *currentfield = readFromFile("input_gol", w, h);
 
 	int rank, size;
 
@@ -133,7 +172,6 @@ void game(int w, int h) {
 
 	int *part_field_with_ghost = calloc(((w / 2) + 2) * ((h / 2) + 2),
 			sizeof(double));
-	int *part_field = calloc((w / 2) * (h / 2), sizeof(double));
 
 	/*Setze Start- und End-Values
 	 * ------------------------------------------------------------------------------------------------------------------------------------
@@ -176,36 +214,75 @@ void game(int w, int h) {
 		}
 	}
 
+	if (rank == 0) {
+		printf("Partfield-Ghost for %d rank\n", rank);
+		for (int x = 0; x < ((w / 2) + 2); x++) {
+			for (int y = 0; y < ((h / 2) + 2); y++) {
+
+				printf("%d ", part_field_with_ghost[calcIndex(w, x, y)]);
+
+			}
+
+			printf("\n");
+		}
+
+		printf("Partfield ohne Ghost for %d rank\n", rank);
+		for (int x = 0; x < (w / 2); x++) {
+			for (int y = 0; y < (h / 2); y++) {
+
+				printf("%d ",
+						part_field_with_ghost[calcIndex(w, x + 1, y + 1)]);
+
+			}
+
+			printf("\n");
+		}
+	}
+
 	/*Für den Randaustausch benötigte Variablen.
 	 * ------------------------------------------------------------------------------------------------------------------------------------
 	 */
 
-	int linksGhost[h / 2];
-	int rechtsGhost[h / 2];
-	int obenGhost[w / 2];
-	int untenGhost[w / 2];
+	int linksGhost[((h / 2))];
+	int rechtsGhost[((h / 2))];
+	int obenGhost[((w / 2))];
+	int untenGhost[((w / 2))];
 
-	int sendenRechtsGhost[h / 2];
-	int sendenLinksGhost[h / 2];
-	int sendenObenGhost[w / 2];
-	int sendenUntenGhost[w / 2];
+	int sendenRechtsGhost[((h / 2))];
+	int sendenLinksGhost[((h / 2))];
+	int sendenObenGhost[((w / 2))];
+	int sendenUntenGhost[((w / 2))];
 
 	MPI_Barrier(MPI_COMM_WORLD);
 
-	/*Der von diesem Prozess zu sendende Ghostrand wird aus dem prozeseigenen part_field geschrieben.
+	/*Der von diesem Prozess zu sendende Ghostrand wird aus dem prozesseigenen part_field geschrieben.
 	 * ------------------------------------------------------------------------------------------------------------------------------------
 	 */
 
-	for (int y = 1; y < (h / 2); y++) {
-		sendenLinksGhost[y - 1] = part_field_with_ghost[calcIndex(w, 1, y)];
-		sendenRechtsGhost[y - 1] = part_field_with_ghost[calcIndex(w, (h / 2),
-				y)];
+	for (int y = 0; y < ((h / 2)); y++) {
+		sendenObenGhost[y] = part_field_with_ghost[calcIndex(w, 1, y + 1)];
+
+		sendenUntenGhost[y] =
+				part_field_with_ghost[calcIndex(w, (h / 2), y + 1)];
 	}
 
-	for (int x = 1; x < (w / 2); x++) {
-		sendenObenGhost[x - 1] = part_field_with_ghost[calcIndex(w, x, 1)];
-		sendenUntenGhost[x - 1] =
-				part_field_with_ghost[calcIndex(w, x, (h / 2))];
+	for (int x = 0; x < ((w / 2)); x++) {
+		sendenLinksGhost[x] = part_field_with_ghost[calcIndex(w, x + 1, 1)];
+		sendenRechtsGhost[x] = part_field_with_ghost[calcIndex(w, x + 1,
+				(h / 2))];
+	}
+
+	if (rank == 0) {
+
+		printf("Die vier GhostLayer - links. rechts. oben. unten\n");
+
+		for (int y = 0; y < (h / 2); y++) {
+			printf("l%d ", sendenLinksGhost[y]);
+			printf("r%d ", sendenRechtsGhost[y]);
+			printf("o%d ", sendenObenGhost[y]);
+			printf("u%d\n", sendenUntenGhost[y]);
+		}
+
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -217,7 +294,7 @@ void game(int w, int h) {
 
 	if (rank == 0) {
 
-		outputProcessInformation(rank, xstart, ystart, xende, yende, comm_cart);
+//		outputProcessInformation(rank, xstart, ystart, xende, yende, comm_cart);
 
 		MPI_Recv(&obenGhost, 14, MPI_INT, 2, 96, MPI_COMM_WORLD, &statusOben);
 		MPI_Recv(&rechtsGhost, 14, MPI_INT, 1, 97, MPI_COMM_WORLD,
@@ -233,7 +310,7 @@ void game(int w, int h) {
 	}
 	if (rank == 1) {
 
-		outputProcessInformation(rank, xstart, ystart, xende, yende, comm_cart);
+//		outputProcessInformation(rank, xstart, ystart, xende, yende, comm_cart);
 
 		MPI_Send(&sendenUntenGhost, 14, MPI_INT, 3, 96, MPI_COMM_WORLD);
 		MPI_Send(&sendenRechtsGhost, 14, MPI_INT, 0, 97, MPI_COMM_WORLD);
@@ -249,7 +326,7 @@ void game(int w, int h) {
 	}
 	if (rank == 2) {
 
-		outputProcessInformation(rank, xstart, ystart, xende, yende, comm_cart);
+//		outputProcessInformation(rank, xstart, ystart, xende, yende, comm_cart);
 
 		MPI_Send(&sendenUntenGhost, 14, MPI_INT, 0, 96, MPI_COMM_WORLD);
 		MPI_Send(&sendenRechtsGhost, 14, MPI_INT, 3, 97, MPI_COMM_WORLD);
@@ -265,7 +342,7 @@ void game(int w, int h) {
 	}
 	if (rank == 3) {
 
-		outputProcessInformation(rank, xstart, ystart, xende, yende, comm_cart);
+//		outputProcessInformation(rank, xstart, ystart, xende, yende, comm_cart);
 
 		MPI_Recv(&obenGhost, 14, MPI_INT, 1, 96, MPI_COMM_WORLD, &statusOben);
 		MPI_Recv(&rechtsGhost, 14, MPI_INT, 2, 97, MPI_COMM_WORLD,
@@ -287,8 +364,8 @@ void game(int w, int h) {
 	 */
 
 	for (int i = 0; i < (w / 2); i++) {
-		printf("%d %d %d %d %d\n", i, obenGhost[i], rechtsGhost[i],
-				untenGhost[i], linksGhost[i]);
+//		printf("%d %d %d %d %d\n", i, obenGhost[i], rechtsGhost[i],
+//				untenGhost[i], linksGhost[i]);
 
 		part_field_with_ghost[calcIndex(w, 0, i + 1)] = linksGhost[i];
 		part_field_with_ghost[calcIndex(w, ((w / 2) + 1), i + 1)] =
@@ -299,28 +376,57 @@ void game(int w, int h) {
 	}
 
 	if (rank == 0) {
-		writeVTK2(TimeSteps, part_field_with_ghost, "gol", xende - xstart,
-				yende - ystart, "_r0_");
-	} else if (rank == 1) {
-		writeVTK2(TimeSteps, part_field_with_ghost, "gol", xende - xstart,
-				yende - ystart, "_r1_");
-	} else if (rank == 2) {
-		writeVTK2(TimeSteps, part_field_with_ghost, "gol", xende - xstart,
-				yende - ystart, "_r2_");
-	} else if (rank == 3) {
-		writeVTK2(TimeSteps, part_field_with_ghost, "gol", xende - xstart,
-				yende - ystart, "_r3_");
+
+		printf("\nDANACH\n");
+
+		if (rank == 0) {
+			printf("Partfield-Ghost for %d rank\n", rank);
+			for (int x = 0; x < ((w / 2) + 2); x++) {
+				for (int y = 0; y < ((h / 2) + 2); y++) {
+
+					printf("%d ", part_field_with_ghost[calcIndex(w, x, y)]);
+
+				}
+
+				printf("\n");
+			}
+
+			printf("Partfield ohne Ghost for %d rank\n", rank);
+			for (int x = 0; x < (w / 2); x++) {
+				for (int y = 0; y < (h / 2); y++) {
+
+					printf("%d ",
+							part_field_with_ghost[calcIndex(w, x + 1, y + 1)]);
+
+				}
+
+				printf("\n");
+			}
+		}
+
 	}
 
-	printf("\n Current Part field with Exchange \n");
-
-//         evolve(current_part_field, new_part_field, w, h, 1, 15, 1, 15);
-//         printf("\n After Evoling\n");
-	exit(1);
-
-	MPI_Barrier(MPI_COMM_WORLD);
-
 	/*
+
+	 if (rank == 0) {
+	 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xende - xstart,
+	 yende - ystart, "_r0_");
+	 } else if (rank == 1) {
+	 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xende - xstart,
+	 yende - ystart, "_r1_");
+	 } else if (rank == 2) {
+	 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xende - xstart,
+	 yende - ystart, "_r2_");
+	 } else if (rank == 3) {
+	 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xende - xstart,
+	 yende - ystart, "_r3_");
+	 }
+
+	 printf("\n Current Part field with Exchange \n");
+
+	 //         evolve(current_part_field, new_part_field, w, h, 1, 15, 1, 15);
+
+	 /*
 	 for (t = 0; t < TimeSteps; t++) {
 	 show(currentfield, w, h);
 	 evolve(currentfield, newfield, w, h);
@@ -382,9 +488,9 @@ int main(int c, char **v) {
 	if (c > 2)
 		h = atoi(v[2]); ///< read height
 	if (w <= 0)
-		w = 30; ///< default width
+		w = 8; ///< default width
 	if (h <= 0)
-		h = 30; ///< default height
+		h = 8; ///< default height
 
 	MPI_Init(&c, &v);
 
