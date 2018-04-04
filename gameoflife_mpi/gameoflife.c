@@ -13,7 +13,7 @@
 #define calcIndex(width, x,y)  ((x)*(width) + (y))
 
 long TimeSteps = 100;
-long outputRank = 0;
+long outputRank = 1;
 
 /*
  * Bezueglich des Ghost-Randes:
@@ -241,10 +241,10 @@ void game(int w, int h) {
 	 * ------------------------------------------------------------------------------------------------------------------------------------
 	 */
 
-	int linksGhost[((h / 2))];
-	int rechtsGhost[((h / 2))];
-	int obenGhost[((w / 2))];
-	int untenGhost[((w / 2))];
+	int linksGhost[(h / 2)];
+	int rechtsGhost[(h / 2)];
+	int obenGhost[(w / 2)];
+	int untenGhost[(w / 2)];
 
 	int sendenRechtsGhost[((h / 2))];
 	int sendenLinksGhost[((h / 2))];
@@ -294,68 +294,68 @@ void game(int w, int h) {
 
 //		outputProcessInformation(rank, xstart, ystart, xende, yende, comm_cart);
 
-		MPI_Recv(&obenGhost, 14, MPI_INT, 2, 96, MPI_COMM_WORLD, &statusOben);
-		MPI_Recv(&linksGhost, 14, MPI_INT, 1, 97, MPI_COMM_WORLD,
-				&statusRechts);
-		MPI_Recv(&untenGhost, 14, MPI_INT, 2, 98, MPI_COMM_WORLD, &statusUnten);
-		MPI_Recv(&rechtsGhost, 14, MPI_INT, 1, 99, MPI_COMM_WORLD,
+		MPI_Recv(&obenGhost, (w/2), MPI_INT, 2, 96, MPI_COMM_WORLD, &statusOben);
+		MPI_Recv(&linksGhost, (h/2), MPI_INT, 1, 97, MPI_COMM_WORLD,
 				&statusLinks);
+		MPI_Recv(&untenGhost, (w/2), MPI_INT, 2, 98, MPI_COMM_WORLD, &statusUnten);
+		MPI_Recv(&rechtsGhost, (h/2), MPI_INT, 1, 99, MPI_COMM_WORLD,
+				&statusRechts);
 
-		MPI_Send(&sendenUntenGhost, 14, MPI_INT, 2, 96, MPI_COMM_WORLD);
-		MPI_Send(&sendenRechtsGhost, 14, MPI_INT, 1, 97, MPI_COMM_WORLD);
-		MPI_Send(&sendenObenGhost, 14, MPI_INT, 2, 98, MPI_COMM_WORLD);
-		MPI_Send(&sendenLinksGhost, 14, MPI_INT, 1, 99, MPI_COMM_WORLD);
+		MPI_Send(&sendenUntenGhost, (w/2), MPI_INT, 2, 96, MPI_COMM_WORLD);
+		MPI_Send(&sendenRechtsGhost, (h/2), MPI_INT, 1, 97, MPI_COMM_WORLD);
+		MPI_Send(&sendenObenGhost, (w/2), MPI_INT, 2, 98, MPI_COMM_WORLD);
+		MPI_Send(&sendenLinksGhost, (h/2), MPI_INT, 1, 99, MPI_COMM_WORLD);
 
 	}
 	if (rank == 1) {
 
 //		outputProcessInformation(rank, xstart, ystart, xende, yende, comm_cart);
 
-		MPI_Send(&sendenUntenGhost, 14, MPI_INT, 3, 96, MPI_COMM_WORLD);
-		MPI_Send(&sendenRechtsGhost, 14, MPI_INT, 0, 97, MPI_COMM_WORLD);
-		MPI_Send(&sendenObenGhost, 14, MPI_INT, 3, 98, MPI_COMM_WORLD);
-		MPI_Send(&sendenLinksGhost, 14, MPI_INT, 0, 99, MPI_COMM_WORLD);
+		MPI_Send(&sendenUntenGhost, (w/2), MPI_INT, 3, 96, MPI_COMM_WORLD);
+		MPI_Send(&sendenRechtsGhost, (h/2), MPI_INT, 0, 97, MPI_COMM_WORLD);
+		MPI_Send(&sendenObenGhost, (w/2), MPI_INT, 3, 98, MPI_COMM_WORLD);
+		MPI_Send(&sendenLinksGhost, (h/2), MPI_INT, 0, 99, MPI_COMM_WORLD);
 
-		MPI_Recv(&obenGhost, 14, MPI_INT, 3, 96, MPI_COMM_WORLD, &statusOben);
-		MPI_Recv(&linksGhost, 14, MPI_INT, 0, 97, MPI_COMM_WORLD,
-				&statusRechts);
-		MPI_Recv(&untenGhost, 14, MPI_INT, 3, 98, MPI_COMM_WORLD, &statusUnten);
-		MPI_Recv(&rechtsGhost, 14, MPI_INT, 0, 99, MPI_COMM_WORLD,
+		MPI_Recv(&obenGhost, (w/2), MPI_INT, 3, 96, MPI_COMM_WORLD, &statusOben);
+		MPI_Recv(&linksGhost, (h/2), MPI_INT, 0, 97, MPI_COMM_WORLD,
 				&statusLinks);
+		MPI_Recv(&untenGhost, (w/2), MPI_INT, 3, 98, MPI_COMM_WORLD, &statusUnten);
+		MPI_Recv(&rechtsGhost, (h/2), MPI_INT, 0, 99, MPI_COMM_WORLD,
+				&statusRechts);
 
 	}
 	if (rank == 2) {
 
 //		outputProcessInformation(rank, xstart, ystart, xende, yende, comm_cart);
 
-		MPI_Send(&sendenUntenGhost, 14, MPI_INT, 0, 96, MPI_COMM_WORLD);
-		MPI_Send(&sendenRechtsGhost, 14, MPI_INT, 3, 97, MPI_COMM_WORLD);
-		MPI_Send(&sendenObenGhost, 14, MPI_INT, 0, 98, MPI_COMM_WORLD);
-		MPI_Send(&sendenLinksGhost, 14, MPI_INT, 3, 99, MPI_COMM_WORLD);
+		MPI_Send(&sendenUntenGhost, (w/2), MPI_INT, 0, 96, MPI_COMM_WORLD);
+		MPI_Send(&sendenRechtsGhost, (h/2), MPI_INT, 3, 97, MPI_COMM_WORLD);
+		MPI_Send(&sendenObenGhost, (w/2), MPI_INT, 0, 98, MPI_COMM_WORLD);
+		MPI_Send(&sendenLinksGhost, (h/2), MPI_INT, 3, 99, MPI_COMM_WORLD);
 
-		MPI_Recv(&obenGhost, 14, MPI_INT, 0, 96, MPI_COMM_WORLD, &statusOben);
-		MPI_Recv(&linksGhost, 14, MPI_INT, 3, 97, MPI_COMM_WORLD,
-				&statusRechts);
-		MPI_Recv(&untenGhost, 14, MPI_INT, 0, 98, MPI_COMM_WORLD, &statusUnten);
-		MPI_Recv(&rechtsGhost, 14, MPI_INT, 3, 99, MPI_COMM_WORLD,
+		MPI_Recv(&obenGhost, (w/2), MPI_INT, 0, 96, MPI_COMM_WORLD, &statusOben);
+		MPI_Recv(&linksGhost, (h/2), MPI_INT, 3, 97, MPI_COMM_WORLD,
 				&statusLinks);
+		MPI_Recv(&untenGhost, (w/2), MPI_INT, 0, 98, MPI_COMM_WORLD, &statusUnten);
+		MPI_Recv(&rechtsGhost, (h/2), MPI_INT, 3, 99, MPI_COMM_WORLD,
+				&statusRechts);
 
 	}
 	if (rank == 3) {
 
 //		outputProcessInformation(rank, xstart, ystart, xende, yende, comm_cart);
 
-		MPI_Recv(&obenGhost, 14, MPI_INT, 1, 96, MPI_COMM_WORLD, &statusOben);
-		MPI_Recv(&linksGhost, 14, MPI_INT, 2, 97, MPI_COMM_WORLD,
-				&statusRechts);
-		MPI_Recv(&untenGhost, 14, MPI_INT, 1, 98, MPI_COMM_WORLD, &statusUnten);
-		MPI_Recv(&rechtsGhost, 14, MPI_INT, 2, 99, MPI_COMM_WORLD,
+		MPI_Recv(&obenGhost, (w/2), MPI_INT, 1, 96, MPI_COMM_WORLD, &statusOben);
+		MPI_Recv(&linksGhost, (h/2), MPI_INT, 2, 97, MPI_COMM_WORLD,
 				&statusLinks);
+		MPI_Recv(&untenGhost, (w/2), MPI_INT, 1, 98, MPI_COMM_WORLD, &statusUnten);
+		MPI_Recv(&rechtsGhost, (h/2), MPI_INT, 2, 99, MPI_COMM_WORLD,
+				&statusRechts);
 
-		MPI_Send(&sendenUntenGhost, 14, MPI_INT, 1, 96, MPI_COMM_WORLD);
-		MPI_Send(&sendenRechtsGhost, 14, MPI_INT, 2, 97, MPI_COMM_WORLD);
-		MPI_Send(&sendenObenGhost, 14, MPI_INT, 1, 98, MPI_COMM_WORLD);
-		MPI_Send(&sendenLinksGhost, 14, MPI_INT, 2, 99, MPI_COMM_WORLD);
+		MPI_Send(&sendenUntenGhost, (w/2), MPI_INT, 1, 96, MPI_COMM_WORLD);
+		MPI_Send(&sendenRechtsGhost, (h/2), MPI_INT, 2, 97, MPI_COMM_WORLD);
+		MPI_Send(&sendenObenGhost, (w/2), MPI_INT, 1, 98, MPI_COMM_WORLD);
+		MPI_Send(&sendenLinksGhost, (h/2), MPI_INT, 2, 99, MPI_COMM_WORLD);
 
 	}
 
@@ -392,29 +392,27 @@ void game(int w, int h) {
 
 		printf("\nDANACH\n");
 
-		if (rank == 0) {
-			printf("Partfield-Ghost for %d rank\n", rank);
-			for (int x = 0; x < ((w / 2) + 2); x++) {
-				for (int y = 0; y < ((h / 2) + 2); y++) {
+		printf("Partfield-Ghost for %d rank\n", rank);
+		for (int x = 0; x < ((w / 2) + 2); x++) {
+			for (int y = 0; y < ((h / 2) + 2); y++) {
 
-					printf("%d ", part_field_with_ghost[calcIndex(w, x, y)]);
+				printf("%d ", part_field_with_ghost[calcIndex(w, x, y)]);
 
-				}
-
-				printf("\n");
 			}
 
-			printf("Partfield ohne Ghost for %d rank\n", rank);
-			for (int x = 0; x < (w / 2); x++) {
-				for (int y = 0; y < (h / 2); y++) {
+			printf("\n");
+		}
 
-					printf("%d ",
-							part_field_with_ghost[calcIndex(w, x + 1, y + 1)]);
+		printf("Partfield ohne Ghost for %d rank\n", rank);
+		for (int x = 0; x < (w / 2); x++) {
+			for (int y = 0; y < (h / 2); y++) {
 
-				}
+				printf("%d ",
+						part_field_with_ghost[calcIndex(w, x + 1, y + 1)]);
 
-				printf("\n");
 			}
+
+			printf("\n");
 		}
 
 	}
