@@ -272,7 +272,7 @@ void game(int w, int h) {
 
 	if (rank == outputRank) {
 
-		printf("Die vier zu sendenen GhostLayer von %d rank\n" , rank);
+		printf("Die vier zu sendenen GhostLayer von %d rank\n", rank);
 
 		for (int y = 0; y < (h / 2); y++) {
 			printf("l%d ", sendenLinksGhost[y]);
@@ -298,7 +298,8 @@ void game(int w, int h) {
 		MPI_Recv(&linksGhost, 14, MPI_INT, 1, 97, MPI_COMM_WORLD,
 				&statusRechts);
 		MPI_Recv(&untenGhost, 14, MPI_INT, 2, 98, MPI_COMM_WORLD, &statusUnten);
-		MPI_Recv(&rechtsGhost, 14, MPI_INT, 1, 99, MPI_COMM_WORLD, &statusLinks);
+		MPI_Recv(&rechtsGhost, 14, MPI_INT, 1, 99, MPI_COMM_WORLD,
+				&statusLinks);
 
 		MPI_Send(&sendenUntenGhost, 14, MPI_INT, 2, 96, MPI_COMM_WORLD);
 		MPI_Send(&sendenRechtsGhost, 14, MPI_INT, 1, 97, MPI_COMM_WORLD);
@@ -319,7 +320,8 @@ void game(int w, int h) {
 		MPI_Recv(&linksGhost, 14, MPI_INT, 0, 97, MPI_COMM_WORLD,
 				&statusRechts);
 		MPI_Recv(&untenGhost, 14, MPI_INT, 3, 98, MPI_COMM_WORLD, &statusUnten);
-		MPI_Recv(&rechtsGhost, 14, MPI_INT, 0, 99, MPI_COMM_WORLD, &statusLinks);
+		MPI_Recv(&rechtsGhost, 14, MPI_INT, 0, 99, MPI_COMM_WORLD,
+				&statusLinks);
 
 	}
 	if (rank == 2) {
@@ -335,7 +337,8 @@ void game(int w, int h) {
 		MPI_Recv(&linksGhost, 14, MPI_INT, 3, 97, MPI_COMM_WORLD,
 				&statusRechts);
 		MPI_Recv(&untenGhost, 14, MPI_INT, 0, 98, MPI_COMM_WORLD, &statusUnten);
-		MPI_Recv(&rechtsGhost, 14, MPI_INT, 3, 99, MPI_COMM_WORLD, &statusLinks);
+		MPI_Recv(&rechtsGhost, 14, MPI_INT, 3, 99, MPI_COMM_WORLD,
+				&statusLinks);
 
 	}
 	if (rank == 3) {
@@ -346,7 +349,8 @@ void game(int w, int h) {
 		MPI_Recv(&linksGhost, 14, MPI_INT, 2, 97, MPI_COMM_WORLD,
 				&statusRechts);
 		MPI_Recv(&untenGhost, 14, MPI_INT, 1, 98, MPI_COMM_WORLD, &statusUnten);
-		MPI_Recv(&rechtsGhost, 14, MPI_INT, 2, 99, MPI_COMM_WORLD, &statusLinks);
+		MPI_Recv(&rechtsGhost, 14, MPI_INT, 2, 99, MPI_COMM_WORLD,
+				&statusLinks);
 
 		MPI_Send(&sendenUntenGhost, 14, MPI_INT, 1, 96, MPI_COMM_WORLD);
 		MPI_Send(&sendenRechtsGhost, 14, MPI_INT, 2, 97, MPI_COMM_WORLD);
@@ -361,10 +365,9 @@ void game(int w, int h) {
 	 * ------------------------------------------------------------------------------------------------------------------------------------
 	 */
 
-
 	if (rank == outputRank) {
 
-		printf("Die vier erhaltenen GhostLayer von %d rank\n" , rank);
+		printf("Die vier erhaltenen GhostLayer von %d rank\n", rank);
 
 		for (int y = 0; y < (h / 2); y++) {
 			printf("l%d ", linksGhost[y]);
@@ -375,15 +378,13 @@ void game(int w, int h) {
 
 	}
 
-
-
 	for (int i = 0; i < (w / 2); i++) {
 
-		part_field_with_ghost[calcIndex(w, 0, i + 1)] = linksGhost[i];
-		part_field_with_ghost[calcIndex(w, ((w / 2) + 1), i + 1)] =
-				rechtsGhost[i];
-		part_field_with_ghost[calcIndex(w, i + 1, 0)] = obenGhost[i];
+		part_field_with_ghost[calcIndex(w, i + 1, 0)] = linksGhost[i];
 		part_field_with_ghost[calcIndex(w, i + 1, ((w / 2) + 1))] =
+				rechtsGhost[i];
+		part_field_with_ghost[calcIndex(w, 0, i + 1)] = obenGhost[i];
+		part_field_with_ghost[calcIndex(w, ((w / 2) + 1), i + 1)] =
 				untenGhost[i];
 	}
 
