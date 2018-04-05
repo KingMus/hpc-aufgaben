@@ -13,11 +13,21 @@
 #define calcIndex(width, x,y)  ((x)*(width) + (y))
 
 long TimeSteps = 20;
+
+/* 0-3 für den Prozess für den der Output geschrieben werden soll.
+ * dabei ist die Anordnung der Prozesse wie folgt:
+ *
+ * 0|1
+ * 2|3
+ */
 long outputRank = 3;
+// 1 für Prozessinformationen
 int printProcessInformation = 0;
+//1 für Output in der Konsole, der aufzeigt wie genau die einzelnen Schritte auf die Felder wirken
 int printDebug = 1;
 
-int countLifingsPeriodic(int* field, int x, int y, int w, int h) {
+//Zählt alle Nachbarn, nichtperiodisch (es wird also nicht über den Rand geschaut)
+int countLifings(int* field, int x, int y, int w, int h) {
 	int neighbours = 0;
 
 	for (int x1 = x - 1; x1 <= x + 1; x1++) {
@@ -31,13 +41,14 @@ int countLifingsPeriodic(int* field, int x, int y, int w, int h) {
 
 }
 
+//Oldfield wird nach den Regeln von Game of Life in Newfield entwickelt.
 void evolve(int* oldfield, int* newfield, int w, int h) {
 
 	int x, y;
 	for (x = 1; x < w - 1; x++) {
 		for (y = 1; y < h - 1; y++) {
 
-			int n = countLifingsPeriodic(oldfield, x, y, w, h);
+			int n = countLifings(oldfield, x, y, w, h);
 			if (oldfield[calcIndex((w - 2) * 2, x, y)])
 				n--;
 
@@ -51,6 +62,7 @@ void evolve(int* oldfield, int* newfield, int w, int h) {
  * --------------------------------------------------------- MAP GENERATION ---------------------------------------------------------
  */
 
+//füllt das initiale currentfield
 void filling(int* currentfield, int w, int h) {
 	int i;
 	for (i = 0; i < h * w; i++) {
@@ -58,6 +70,7 @@ void filling(int* currentfield, int w, int h) {
 	}
 }
 
+//liest eine Datei ein. w und h müssen mit der Dateigröße übereinstimmen
 int* readFromFile(char filename[256], int w, int h) {
 	FILE* file = fopen(filename, "r"); //read mode
 
@@ -99,30 +112,41 @@ int* readFromFile(char filename[256], int w, int h) {
  * --------------------------------------------------------- MPI STUFF ---------------------------------------------------------
  */
 
+/*hier passiert die Action, zur Information: alles in game() wird von vier Prozessen gleichzeitig durchgeführt.
+ * Die Anzahl 4 kommt aus dem Makefile bzw. dem Ausführen-Befehl. Mittels "rank" kann zwischen den Prozessen
+ * unterschieden werden und es können individuelle Code-Segmente ausgeführt werden.
+ *
+ */
 void game(int w, int h) {
 
 //	int *currentfield = calloc(w * h, sizeof(double));
-//	filling(currentfield, w, h);
+//	filling(currentfield, w, h); // aktivieren für Befüllung von Programm und nicht von Datei
 
 	int *currentfield = readFromFile("input_gol", w, h);
 
+	// Prozessrank und Size, MPI-Variablen
 	int rank, size;
 
 	int t = 0;
 
+	//jeder Prozess bekommt ein Viertel des Feldes, zur Vereinfachung wurden deshalb diese Variablen eingeführt
 	int half_w = w / 2;
 	int half_h = h / 2;
 
+	//Status, werden später im Austausch des Ghostlayers benötigt
 	MPI_Status mpi_status_up;
 	MPI_Status mpi_status_down;
 	MPI_Status mpi_status_right;
 	MPI_Status mpi_status_left;
 
+	//der im Code verwendete MPI-Communicator wird hier deklariert
 	MPI_Comm comm_cart;
 
+	//muss von MPI aus gemacht werden
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
+	//Variablendeklarationen, die für Erzeugung unseres eigenen Communicators benötigt werden, siehe MPI_Cart_create
 	int numProcessPerDimension[1], periodic[1], reorder;
 
 	periodic[0] = 1;
@@ -132,6 +156,7 @@ void game(int w, int h) {
 	MPI_Cart_create(MPI_COMM_WORLD, 1, numProcessPerDimension, periodic,
 			reorder, &comm_cart);
 
+	//verschiedene, im Programmfluss benötigte Felder. Siehe im Code wofür genau
 	int *part_field_with_ghost = calloc((half_w + 2) * (half_h + 2),
 			sizeof(double));
 	int *part_field = calloc(half_w * half_h, sizeof(double));
@@ -144,19 +169,18 @@ void game(int w, int h) {
 
 	int xStart, yStart, xEnd, yEnd;
 
+	//Prozessspezifische Startvariablen, damit nicht jeder Prozess im selben Viertel der GoL-Map arbeitet.
 	if (rank == 0) {
 		xStart = 0;
 		xEnd = half_w;
 		yStart = 0;
 		yEnd = half_h;
 	} else if (rank == 1) {
-
 		xStart = 0;
 		xEnd = half_w;
 		yStart = half_h;
 		yEnd = h;
 	} else if (rank == 2) {
-
 		xStart = half_w;
 		xEnd = w;
 		yStart = 0;
@@ -168,6 +192,7 @@ void game(int w, int h) {
 		yEnd = h;
 	}
 
+	//Prozessinformationen für AB4-Teilaufgabe b)
 	if (printProcessInformation) {
 		print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
 	}
@@ -183,6 +208,7 @@ void game(int w, int h) {
 		}
 	}
 
+	//Output to check field, only for one process
 	if (rank == outputRank) {
 
 		printf("Complete field in %ld timestep\n", t);
@@ -195,12 +221,16 @@ void game(int w, int h) {
 
 	}
 
+	/*mit diesem Befehl warten alle Prozesse aufeinander, damit keiner weitermacht.
+	 * Das macht Sinn, wenn erst eine Aufgabe von allen erledigt sein soll, damit keine Probleme bei der nächsten entstehen können.
+	 * In diesem Programm nicht perfekt eingesetzt, geht bestimmt geschickter.
+	 */
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	//GoL begins
-	for (t = 1; t <= TimeSteps; t++) {
+	for (t = 0; t <= TimeSteps; t++) {
 
-		/*Das aktuelle part_field_next_gen_with_ghost wird in ein Feld ohne ghost geschrieben und dann in die VTK geschrieben
+		/*Das aktuelle part_field_with_ghost wird in ein Feld ohne ghost geschrieben und dann in die VTK geschrieben
 		 * ------------------------------------------------------------------------------------------------------------------------------------
 		 */
 
@@ -223,6 +253,7 @@ void game(int w, int h) {
 
 		}
 
+		//schreibe VTK, jeder Prozess schreibt seine eigene Datei, unterschieden wird durch den String
 		char specific_filename[1024];
 		sprintf(specific_filename, "r%d-", rank);
 		writeVTK2(t, part_field, "gol", half_w, half_h, specific_filename, w);
@@ -236,25 +267,31 @@ void game(int w, int h) {
 		 * ------------------------------------------------------------------------------------------------------------------------------------
 		 */
 
+		//Die Ghost-Ränder die erhalten werden (von anderen Prozessen)
 		int right_ghost_to_recieve[half_h];
 		int left_ghost_to_recieve[half_h];
 		int up_ghost_to_recieve[half_w];
 		int down_ghost_to_recieve[half_w];
 
+		//Die Ghost-Ecken, die erhalten werden sollen (von anderen Prozessen)
 		int down_left_ghost_to_recieve;
 		int down_right_ghost_to_recieve;
 		int up_left_ghost_to_recieve;
 		int up_right_ghost_to_recieve;
 
+		//Die Ghost-Ränder die gesendet werden sollen (von diesem Prozess)
 		int right_ghost_to_send[half_h];
 		int left_ghost_to_send[half_h];
 		int up_ghost_to_send[half_w];
 		int down_ghost_to_send[half_w];
 
+		//Die Ghost-Ecken die gesendet werden sollen (von diesem Prozess)
 		int down_left_ghost_to_send;
 		int down_right_ghost_to_send;
 		int up_left_ghost_to_send;
 		int up_right_ghost_to_send;
+
+		//warum das Ganze? Siehe explanation.md im Repository
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
@@ -496,7 +533,7 @@ void game(int w, int h) {
 
 		}
 
-		/*Der erhaltene Ghostrand wird dem prozesseigenen part_field_with_ghost hinzugefügt.
+		/*Der erhaltene Ghostrand (und die Ecken) werden dem prozesseigenen part_field_with_ghost hinzugefügt.
 		 * ------------------------------------------------------------------------------------------------------------------------------------
 		 */
 
@@ -584,6 +621,7 @@ int main(int c, char **v) {
  * --------------------------------------------------------- OUTPUT METHODS ---------------------------------------------------------
  */
 
+//damit der Code nicht andauernd doppelt vorkommt wurde er ausgelagert
 void print_Partfield(int rank, int w, int h, int* part_field_with_ghost) {
 	printf("Partfield-Ghost for %d rank\n", rank);
 	for (int x = 0; x < ((w / 2) + 2); x++) {
@@ -601,6 +639,7 @@ void print_Partfield(int rank, int w, int h, int* part_field_with_ghost) {
 	}
 }
 
+//für Teilaufgabe b) auf AB4
 void print_ProcessInformation(int rank, int xstart, int ystart, int xende,
 		int yende, MPI_Comm comm_cart) {
 
@@ -637,6 +676,8 @@ void print_ProcessInformation(int rank, int xstart, int ystart, int xende,
  * Bezueglich des Ghost-Randes:
  * Keine Ausgabe des Ghostrandes, der muss rausgerechnet werden.
  * Sonst sind die Randfelder doppelt vorhanden und jede Datei ist größer als sie sein muss.
+ *
+ * Komischerweise sind die erzeugten VTK-Dateien horizontal gespiegelt. Ich hab aber keine Lust mehr das zu fixen.
  */
 
 void writeVTK2(long timestep, int *data, char prefix[1024], long w, long h,

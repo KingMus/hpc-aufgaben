@@ -74,7 +74,7 @@ int getCorrectIndex(long w, long h, char threadnum[1024]) {
 	return correctIndex;
 }
 
-int countLifingsPeriodic(double* currentfield, int x, int y, int w, int h) {
+int countLifings(double* currentfield, int x, int y, int w, int h) {
 	int neighbours = 0;
 	for (int y1 = y - 1; y1 <= y + 1; y1++) {
 		for (int x1 = x - 1; x1 <= x + 1; x1++) {
@@ -193,7 +193,7 @@ void evolveOneStep(int ystart, int yende, int xstart, int xende, int w, int h,
 	int x, y;
 	for (y = ystart; y < yende; y++) {
 		for (x = xstart; x < xende; x++) {
-			int n = countLifingsPeriodic(currentfield, x, y, w, h);
+			int n = countLifings(currentfield, x, y, w, h);
 			if (currentfield[calcIndex(w, x, y)])
 				n--;
 
