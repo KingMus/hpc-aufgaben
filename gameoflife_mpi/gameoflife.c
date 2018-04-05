@@ -356,7 +356,7 @@ void game(int w, int h) {
 
 		//Output to check field, only for one process
 		if (rank == outputRank) {
-			printf("\nDANACH\n");
+			printf("\nAFTER EXCHANGE\n\n");
 			print_Partfield(rank, w, h, part_field_with_ghost);
 		}
 
@@ -371,6 +371,12 @@ void game(int w, int h) {
 
 		evolve(part_field_with_ghost, part_field_next_gen_with_ghost,
 				(half_w + 2), (half_h + 2));
+
+		//Output to check field, only for one process
+		if (rank == outputRank) {
+			printf("\nAFTER EVOLVING\n\n");
+			print_Partfield(rank, w, h, part_field_next_gen_with_ghost);
+		}
 
 		/*Das aktuelle part_field_next_gen_with_ghost wird in ein Feld ohne ghost geschrieben und dann in die VTK geschrieben
 		 * ------------------------------------------------------------------------------------------------------------------------------------
@@ -399,7 +405,9 @@ void game(int w, int h) {
 				printf("\n");
 			}
 
-			printf("\n%ld timestep\n\n", t);
+			printf(
+					"\n%ld timestep -------------------------------------------------------------\n\n",
+					t);
 
 		}
 
@@ -407,8 +415,8 @@ void game(int w, int h) {
 
 		//SWAP
 		int *temp = part_field_with_ghost;
-		part_field_with_ghost = part_field_next_gen;
-		part_field_next_gen = temp;
+		part_field_with_ghost = part_field_next_gen_with_ghost;
+		part_field_next_gen_with_ghost = temp;
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
