@@ -12,7 +12,7 @@
 
 #define calcIndex(width, x,y)  ((x)*(width) + (y))
 
-long TimeSteps = 100;
+long TimeSteps = 3;
 long outputRank = 1;
 
 void evolve(double* currentfield, double* newfield, int w, int h) {
@@ -90,6 +90,7 @@ void game(int w, int h) {
 	double *currentfield = readFromFile("input_gol", w, h);
 
 	int rank, size;
+	int t;
 
 	int half_w = w / 2;
 	int half_h = h / 2;
@@ -162,207 +163,227 @@ void game(int w, int h) {
 		print_Partfield(rank, w, h, part_field_with_ghost);
 	}
 
-	/*Für den Randaustausch benötigte Variablen.
-	 * ------------------------------------------------------------------------------------------------------------------------------------
-	 */
+	for (t = 0; t < TimeSteps; t++) {
 
-	int right_ghost_to_recieve[half_h];
-	int left_ghost_to_recieve[half_h];
-	int up_ghost_to_recieve[half_w];
-	int down_ghost_to_recieve[half_w];
+		/*Für den Randaustausch benötigte Variablen.
+		 * ------------------------------------------------------------------------------------------------------------------------------------
+		 */
 
-	int right_ghost_to_send[half_h];
-	int left_ghost_to_send[half_h];
-	int up_ghost_to_send[half_w];
-	int down_ghost_to_send[half_w];
+		int right_ghost_to_recieve[half_h];
+		int left_ghost_to_recieve[half_h];
+		int up_ghost_to_recieve[half_w];
+		int down_ghost_to_recieve[half_w];
 
-	MPI_Barrier(MPI_COMM_WORLD);
+		int right_ghost_to_send[half_h];
+		int left_ghost_to_send[half_h];
+		int up_ghost_to_send[half_w];
+		int down_ghost_to_send[half_w];
 
-	/*Der von diesem Prozess zu sendende Ghostrand wird aus dem prozesseigenen part_field geschrieben.
-	 * ------------------------------------------------------------------------------------------------------------------------------------
-	 */
+		MPI_Barrier(MPI_COMM_WORLD);
 
-	for (int y = 0; y < half_h; y++) {
-		up_ghost_to_send[y] = part_field_with_ghost[calcIndex(w, 1, y + 1)];
+		/*Der von diesem Prozess zu sendende Ghostrand wird aus dem prozesseigenen part_field geschrieben.
+		 * ------------------------------------------------------------------------------------------------------------------------------------
+		 */
 
-		down_ghost_to_send[y] = part_field_with_ghost[calcIndex(w, half_h,
-				y + 1)];
-	}
-
-	for (int x = 0; x < half_w; x++) {
-		left_ghost_to_send[x] = part_field_with_ghost[calcIndex(w, x + 1, 1)];
-		right_ghost_to_send[x] = part_field_with_ghost[calcIndex(w, x + 1,
-				half_h)];
-	}
-
-	//Output to check ghost layer, only for one process
-	if (rank == outputRank) {
-		printf("Die vier zu sendenen GhostLayer von %d rank\n", rank);
 		for (int y = 0; y < half_h; y++) {
-			printf("l%d ", left_ghost_to_send[y]);
-			printf("r%d ", right_ghost_to_send[y]);
-			printf("o%d ", up_ghost_to_send[y]);
-			printf("u%d\n", down_ghost_to_send[y]);
+			up_ghost_to_send[y] = part_field_with_ghost[calcIndex(w, 1, y + 1)];
+
+			down_ghost_to_send[y] = part_field_with_ghost[calcIndex(w, half_h,
+					y + 1)];
 		}
 
-	}
-
-	MPI_Barrier(MPI_COMM_WORLD);
-
-	/* Jeder Prozess sendet jetzt seinen gerade erstellen Ghostrand seines part_fieldes.
-	 * Außerdem recieved jeder Prozess den zu ihm passenden Ghostrand und speichert ihn in ...
-	 * ------------------------------------------------------------------------------------------------------------------------------------
-	 */
-
-	if (rank == 0) {
-
-//		print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
-
-		MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 2, 96, MPI_COMM_WORLD,
-				&mpi_status_up);
-		MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 1, 97,
-		MPI_COMM_WORLD, &mpi_status_left);
-		MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 2, 98,
-		MPI_COMM_WORLD, &mpi_status_down);
-		MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 1, 99,
-		MPI_COMM_WORLD, &mpi_status_right);
-
-		MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 2, 96, MPI_COMM_WORLD);
-		MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 1, 97, MPI_COMM_WORLD);
-		MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 2, 98, MPI_COMM_WORLD);
-		MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 1, 99, MPI_COMM_WORLD);
-
-	}
-	if (rank == 1) {
-
-//		print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
-
-		MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 3, 96, MPI_COMM_WORLD);
-		MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 0, 97, MPI_COMM_WORLD);
-		MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 3, 98, MPI_COMM_WORLD);
-		MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 0, 99, MPI_COMM_WORLD);
-
-		MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 3, 96, MPI_COMM_WORLD,
-				&mpi_status_up);
-		MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 0, 97,
-		MPI_COMM_WORLD, &mpi_status_left);
-		MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 3, 98,
-		MPI_COMM_WORLD, &mpi_status_down);
-		MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 0, 99,
-		MPI_COMM_WORLD, &mpi_status_right);
-
-	}
-	if (rank == 2) {
-
-//		print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
-
-		MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 0, 96, MPI_COMM_WORLD);
-		MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 3, 97, MPI_COMM_WORLD);
-		MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 0, 98, MPI_COMM_WORLD);
-		MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 3, 99, MPI_COMM_WORLD);
-
-		MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 0, 96, MPI_COMM_WORLD,
-				&mpi_status_up);
-		MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 3, 97,
-		MPI_COMM_WORLD, &mpi_status_left);
-		MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 0, 98,
-		MPI_COMM_WORLD, &mpi_status_down);
-		MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 3, 99,
-		MPI_COMM_WORLD, &mpi_status_right);
-
-	}
-	if (rank == 3) {
-
-//		print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
-
-		MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 1, 96, MPI_COMM_WORLD,
-				&mpi_status_up);
-		MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 2, 97,
-		MPI_COMM_WORLD, &mpi_status_left);
-		MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 1, 98,
-		MPI_COMM_WORLD, &mpi_status_down);
-		MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 2, 99,
-		MPI_COMM_WORLD, &mpi_status_right);
-
-		MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 1, 96, MPI_COMM_WORLD);
-		MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 2, 97, MPI_COMM_WORLD);
-		MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 1, 98, MPI_COMM_WORLD);
-		MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 2, 99, MPI_COMM_WORLD);
-
-	}
-
-	MPI_Barrier(MPI_COMM_WORLD);
-
-	//Output to check recieved ghost, only for one process
-	if (rank == outputRank) {
-		printf("Die vier erhaltenen GhostLayer von %d rank\n", rank);
-		for (int y = 0; y < half_h; y++) {
-			printf("l%d ", left_ghost_to_recieve[y]);
-			printf("r%d ", right_ghost_to_recieve[y]);
-			printf("o%d ", up_ghost_to_recieve[y]);
-			printf("u%d\n", down_ghost_to_recieve[y]);
+		for (int x = 0; x < half_w; x++) {
+			left_ghost_to_send[x] =
+					part_field_with_ghost[calcIndex(w, x + 1, 1)];
+			right_ghost_to_send[x] = part_field_with_ghost[calcIndex(w, x + 1,
+					half_h)];
 		}
 
+		//Output to check ghost layer, only for one process
+		if (rank == outputRank) {
+			printf("Die vier zu sendenen GhostLayer von %d rank\n", rank);
+			for (int y = 0; y < half_h; y++) {
+				printf("l%d ", left_ghost_to_send[y]);
+				printf("r%d ", right_ghost_to_send[y]);
+				printf("o%d ", up_ghost_to_send[y]);
+				printf("u%d\n", down_ghost_to_send[y]);
+			}
+
+		}
+
+		MPI_Barrier(MPI_COMM_WORLD);
+
+		/* Jeder Prozess sendet jetzt seinen gerade erstellen Ghostrand seines part_fieldes.
+		 * Außerdem recieved jeder Prozess den zu ihm passenden Ghostrand und speichert ihn in ...
+		 * ------------------------------------------------------------------------------------------------------------------------------------
+		 */
+
+		if (rank == 0) {
+
+//		print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
+
+			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 2, 96,
+					MPI_COMM_WORLD, &mpi_status_up);
+			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 1, 97,
+			MPI_COMM_WORLD, &mpi_status_left);
+			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 2, 98,
+			MPI_COMM_WORLD, &mpi_status_down);
+			MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 1, 99,
+			MPI_COMM_WORLD, &mpi_status_right);
+
+			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 2, 96,
+					MPI_COMM_WORLD);
+			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 1, 97,
+					MPI_COMM_WORLD);
+			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 2, 98, MPI_COMM_WORLD);
+			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 1, 99,
+					MPI_COMM_WORLD);
+
+		}
+		if (rank == 1) {
+
+//		print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
+
+			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 3, 96,
+					MPI_COMM_WORLD);
+			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 0, 97,
+					MPI_COMM_WORLD);
+			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 3, 98, MPI_COMM_WORLD);
+			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 0, 99,
+					MPI_COMM_WORLD);
+
+			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 3, 96,
+					MPI_COMM_WORLD, &mpi_status_up);
+			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 0, 97,
+			MPI_COMM_WORLD, &mpi_status_left);
+			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 3, 98,
+			MPI_COMM_WORLD, &mpi_status_down);
+			MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 0, 99,
+			MPI_COMM_WORLD, &mpi_status_right);
+
+		}
+		if (rank == 2) {
+
+//		print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
+
+			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 0, 96,
+					MPI_COMM_WORLD);
+			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 3, 97,
+					MPI_COMM_WORLD);
+			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 0, 98, MPI_COMM_WORLD);
+			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 3, 99,
+					MPI_COMM_WORLD);
+
+			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 0, 96,
+					MPI_COMM_WORLD, &mpi_status_up);
+			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 3, 97,
+			MPI_COMM_WORLD, &mpi_status_left);
+			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 0, 98,
+			MPI_COMM_WORLD, &mpi_status_down);
+			MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 3, 99,
+			MPI_COMM_WORLD, &mpi_status_right);
+
+		}
+		if (rank == 3) {
+
+//		print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
+
+			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 1, 96,
+					MPI_COMM_WORLD, &mpi_status_up);
+			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 2, 97,
+			MPI_COMM_WORLD, &mpi_status_left);
+			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 1, 98,
+			MPI_COMM_WORLD, &mpi_status_down);
+			MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 2, 99,
+			MPI_COMM_WORLD, &mpi_status_right);
+
+			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 1, 96,
+					MPI_COMM_WORLD);
+			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 2, 97,
+					MPI_COMM_WORLD);
+			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 1, 98, MPI_COMM_WORLD);
+			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 2, 99,
+					MPI_COMM_WORLD);
+
+		}
+
+		MPI_Barrier(MPI_COMM_WORLD);
+
+		//Output to check recieved ghost, only for one process
+		if (rank == outputRank) {
+			printf("Die vier erhaltenen GhostLayer von %d rank\n", rank);
+			for (int y = 0; y < half_h; y++) {
+				printf("l%d ", left_ghost_to_recieve[y]);
+				printf("r%d ", right_ghost_to_recieve[y]);
+				printf("o%d ", up_ghost_to_recieve[y]);
+				printf("u%d\n", down_ghost_to_recieve[y]);
+			}
+
+		}
+
+		/*Der erhaltene Ghostrand wird dem prozesseigenen part_field_with_ghost hinzugefügt.
+		 * ------------------------------------------------------------------------------------------------------------------------------------
+		 */
+
+		for (int i = 0; i < half_w; i++) {
+
+			part_field_with_ghost[calcIndex(w, i + 1, 0)] =
+					left_ghost_to_recieve[i];
+			part_field_with_ghost[calcIndex(w, i + 1, (half_w + 1))] =
+					right_ghost_to_recieve[i];
+			part_field_with_ghost[calcIndex(w, 0, i + 1)] =
+					up_ghost_to_recieve[i];
+			part_field_with_ghost[calcIndex(w, (half_w + 1), i + 1)] =
+					down_ghost_to_recieve[i];
+		}
+
+		//Output to check field, only for one process
+		if (rank == outputRank) {
+			printf("\nDANACH\n");
+			print_Partfield(rank, w, h, part_field_with_ghost);
+			printf("\n %ld timestep\n", t);
+		}
+
+
+		/*
+
+		 if (rank == 0) {
+		 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xEnd - xStart,
+		 yEnd - yStart, "_r0_");
+		 } else if (rank == 1) {
+		 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xEnd - xStart,
+		 yEnd - yStart, "_r1_");
+		 } else if (rank == 2) {
+		 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xEnd - xStart,
+		 yEnd - yStart, "_r2_");
+		 } else if (rank == 3) {
+		 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xEnd - xStart,
+		 yEnd - yStart, "_r3_");
+		 }
+
+		 printf("\n Current Part field with Exchange \n");
+
+		 //         evolve(current_part_field, new_part_field, w, h, 1, 15, 1, 15);
+
+		 /*
+		 for (t = 0; t < TimeSteps; t++) {
+		 show(currentfield, w, h);
+		 evolve(currentfield, newfield, w, h);
+
+
+		 writeVTK2(t, currentfield, "gol", w, h);
+
+		 usleep(200000);
+
+		 //SWAP
+		 double *temp = currentfield;
+		 currentfield = newfield;
+		 newfield = temp;
+		 }
+
+		 */
+
 	}
-
-	/*Der erhaltene Ghostrand wird dem prozesseigenen part_field_with_ghost hinzugefügt.
-	 * ------------------------------------------------------------------------------------------------------------------------------------
-	 */
-
-	for (int i = 0; i < half_w; i++) {
-
-		part_field_with_ghost[calcIndex(w, i + 1, 0)] =
-				left_ghost_to_recieve[i];
-		part_field_with_ghost[calcIndex(w, i + 1, (half_w + 1))] =
-				right_ghost_to_recieve[i];
-		part_field_with_ghost[calcIndex(w, 0, i + 1)] = up_ghost_to_recieve[i];
-		part_field_with_ghost[calcIndex(w, (half_w + 1), i + 1)] =
-				down_ghost_to_recieve[i];
-	}
-
-	//Output to check field, only for one process
-	if (rank == outputRank) {
-		printf("\nDANACH\n");
-		print_Partfield(rank, w, h, part_field_with_ghost);
-	}
-
-	/*
-
-	 if (rank == 0) {
-	 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xEnd - xStart,
-	 yEnd - yStart, "_r0_");
-	 } else if (rank == 1) {
-	 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xEnd - xStart,
-	 yEnd - yStart, "_r1_");
-	 } else if (rank == 2) {
-	 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xEnd - xStart,
-	 yEnd - yStart, "_r2_");
-	 } else if (rank == 3) {
-	 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xEnd - xStart,
-	 yEnd - yStart, "_r3_");
-	 }
-
-	 printf("\n Current Part field with Exchange \n");
-
-	 //         evolve(current_part_field, new_part_field, w, h, 1, 15, 1, 15);
-
-	 /*
-	 for (t = 0; t < TimeSteps; t++) {
-	 show(currentfield, w, h);
-	 evolve(currentfield, newfield, w, h);
-
-	 printf("%ld timestep\n", t);
-	 writeVTK2(t, currentfield, "gol", w, h);
-
-	 usleep(200000);
-
-	 //SWAP
-	 double *temp = currentfield;
-	 currentfield = newfield;
-	 newfield = temp;
-	 }
-
-	 */
 
 	free(currentfield);
 	free(newfield);
