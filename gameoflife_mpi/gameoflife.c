@@ -420,28 +420,17 @@ void game(int w, int h) {
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
-		/*
+		if (rank == 0) {
+			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r0-");
+		} else if (rank == 1) {
+			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r1-");
+		} else if (rank == 2) {
+			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r2-");
+		} else if (rank == 3) {
+			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r3-");
+		}
 
-		 if (rank == 0) {
-		 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xEnd - xStart,
-		 yEnd - yStart, "_r0_");
-		 } else if (rank == 1) {
-		 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xEnd - xStart,
-		 yEnd - yStart, "_r1_");
-		 } else if (rank == 2) {
-		 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xEnd - xStart,
-		 yEnd - yStart, "_r2_");
-		 } else if (rank == 3) {
-		 writeVTK2(TimeSteps, part_field_with_ghost, "gol", xEnd - xStart,
-		 yEnd - yStart, "_r3_");
-		 }
-
-
-		 usleep(200000);
-
-		 }
-
-		 */
+		usleep(200000);
 
 	}
 
@@ -529,7 +518,7 @@ void print_ProcessInformation(int rank, int xstart, int ystart, int xende,
  * Sonst sind die Randfelder doppelt vorhanden und jede Datei ist größer als sie sein muss.
  */
 
-void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h,
+void writeVTK2(long timestep, int *data, char prefix[1024], long w, long h,
 		char threadnum[1024]) {
 	char filename[2048];
 	int x, y;
@@ -567,7 +556,7 @@ void writeVTK2(long timestep, double *data, char prefix[1024], long w, long h,
 	for (x = 0; x < w; x++) {
 		for (y = 0; y < h; y++) {
 
-			float value = data[calcIndex(h, y, x)];
+			float value = data[calcIndex((w * 2), x, y)];
 
 			fwrite((unsigned char*) &value, sizeof(float), 1, fp);
 		}
