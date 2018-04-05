@@ -13,9 +13,55 @@
 #define calcIndex(width, x,y)  ((x)*(width) + (y))
 
 long TimeSteps = 20;
-long outputRank = 3;
-int printProcessInformation = 0;
-int printDebug = 1;
+
+void writeVTK2(long timestep, int *data, char prefix[1024], long w, long h,
+		char threadnum[1024], long indexForCalc) {
+	char filename[2048];
+	int x, y;
+
+	long offsetX = 0;
+	long offsetY = 0;
+	float deltax = 1.0;
+	float deltay = 1.0;
+	long nxy = w * h * sizeof(float);
+
+	mkdir("vtk_folder", 0777);
+
+	snprintf(filename, sizeof(filename), "%s%s-%s%05ld%s", "vtk_folder/",
+			prefix, threadnum, timestep, ".vti");
+
+	FILE* fp = fopen(filename, "w");
+
+	fprintf(fp, "<?xml version=\"1.0\"?>\n");
+	fprintf(fp,
+			"<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n");
+	fprintf(fp,
+			"<ImageData WholeExtent=\"%d %d %d %d %d %d\" Origin=\"0 0 0\" Spacing=\"%le %le %le\">\n",
+			offsetX, offsetX + w, offsetY, offsetY + h, 0, 0, deltax, deltax,
+			0.0);
+	fprintf(fp, "<CellData Scalars=\"%s\">\n", prefix);
+	fprintf(fp,
+			"<DataArray type=\"Float32\" Name=\"%s\" format=\"appended\" offset=\"0\"/>\n",
+			prefix);
+	fprintf(fp, "</CellData>\n");
+	fprintf(fp, "</ImageData>\n");
+	fprintf(fp, "<AppendedData encoding=\"raw\">\n");
+	fprintf(fp, "_");
+	fwrite((unsigned char*) &nxy, sizeof(long), 1, fp);
+
+	for (x = 0; x < w; x++) {
+		for (y = 0; y < h; y++) {
+
+			float value = data[calcIndex(indexForCalc, x, y)];
+
+			fwrite((unsigned char*) &value, sizeof(float), 1, fp);
+		}
+	}
+
+	fprintf(fp, "\n</AppendedData>\n");
+	fprintf(fp, "</VTKFile>\n");
+	fclose(fp);
+}
 
 int countLifingsPeriodic(int* field, int x, int y, int w, int h) {
 	int neighbours = 0;
@@ -44,17 +90,6 @@ void evolve(int* oldfield, int* newfield, int w, int h) {
 			newfield[calcIndex((w - 2) * 2, x, y)] = (n == 3
 					|| (n == 2 && oldfield[calcIndex((w - 2) * 2, x, y)]));
 		}
-	}
-}
-
-/*
- * --------------------------------------------------------- MAP GENERATION ---------------------------------------------------------
- */
-
-void filling(int* currentfield, int w, int h) {
-	int i;
-	for (i = 0; i < h * w; i++) {
-		currentfield[i] = (rand() < RAND_MAX / 10) ? 1 : 0; ///< init domain randomly
 	}
 }
 
@@ -100,9 +135,6 @@ int* readFromFile(char filename[256], int w, int h) {
  */
 
 void game(int w, int h) {
-
-//	int *currentfield = calloc(w * h, sizeof(double));
-//	filling(currentfield, w, h);
 
 	int *currentfield = readFromFile("input_gol", w, h);
 
@@ -167,10 +199,6 @@ void game(int w, int h) {
 		yEnd = h;
 	}
 
-	if(printProcessInformation){
-	print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
-	}
-
 	/*Für jeden Prozess wird das passende Teilfeld aus dem großen currentfield geschrieben (ohne Ghostrand-Befüllung)
 	 * ------------------------------------------------------------------------------------------------------------------------------------
 	 */
@@ -205,25 +233,8 @@ void game(int w, int h) {
 		writeVTK2(t, part_field_initial, "gol", half_w, half_h, "r3-", w);
 	}
 
-	if (rank == outputRank) {
-
-		printf("Complete field in %ld timestep\n", t);
-		for (int x = 0; x < w; x++) {
-			for (int y = 0; y < h; y++) {
-				printf("%d ", currentfield[calcIndex(w, x, y)]);
-			}
-			printf("\n");
-		}
-
-	}
-
 	//GoL begins
 	for (t = 1; t <= TimeSteps; t++) {
-
-		//Output to check field, only for one process
-		if (rank == outputRank && printDebug) {
-			print_Partfield(rank, w, h, part_field_with_ghost);
-		}
 
 		/*Für den Randaustausch benötigte Variablen.
 		 * ------------------------------------------------------------------------------------------------------------------------------------
@@ -275,23 +286,6 @@ void game(int w, int h) {
 				half_h)];
 		up_left_ghost_to_send = part_field_with_ghost[calcIndex(w, 1, 1)];
 		up_right_ghost_to_send = part_field_with_ghost[calcIndex(w, 1, half_w)];
-
-		//Output to check ghost layer, only for one process
-		if (rank == outputRank && printDebug) {
-			printf("Die vier zu sendenen GhostLayer von %d rank\n", rank);
-			for (int y = 0; y < half_h; y++) {
-				printf("l%d ", left_ghost_to_send[y]);
-				printf("r%d ", right_ghost_to_send[y]);
-				printf("o%d ", up_ghost_to_send[y]);
-				printf("u%d\n", down_ghost_to_send[y]);
-			}
-
-			printf("Die vier zu sendenen Ghost-Ecken von %d rank\n", rank);
-			printf("lo%d ro%d\n", up_left_ghost_to_send,
-					up_right_ghost_to_send);
-			printf("lu%d ru%d\n", down_left_ghost_to_send,
-					down_right_ghost_to_send);
-		}
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
@@ -471,24 +465,6 @@ void game(int w, int h) {
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
-		//Output to check recieved ghost, only for one process
-		if (rank == outputRank && printDebug) {
-			printf("Die vier erhaltenen GhostLayer von %d rank\n", rank);
-			for (int y = 0; y < half_h; y++) {
-				printf("l%d ", left_ghost_to_recieve[y]);
-				printf("r%d ", right_ghost_to_recieve[y]);
-				printf("o%d ", up_ghost_to_recieve[y]);
-				printf("u%d\n", down_ghost_to_recieve[y]);
-			}
-
-			printf("Die vier erhaltenen Ghost-Ecken von %d rank\n", rank);
-			printf("lo%d ro%d\n", up_left_ghost_to_recieve,
-					up_right_ghost_to_recieve);
-			printf("lu%d ru%d\n", down_left_ghost_to_recieve,
-					down_right_ghost_to_recieve);
-
-		}
-
 		/*Der erhaltene Ghostrand wird dem prozesseigenen part_field_with_ghost hinzugefügt.
 		 * ------------------------------------------------------------------------------------------------------------------------------------
 		 */
@@ -513,12 +489,6 @@ void game(int w, int h) {
 		part_field_with_ghost[calcIndex(w, half_w + 1, half_h + 1)] =
 				down_right_ghost_to_recieve;
 
-		//Output to check field, only for one process
-		if (rank == outputRank && printDebug) {
-			printf("\nAFTER EXCHANGE\n\n");
-			print_Partfield(rank, w, h, part_field_with_ghost);
-		}
-
 		MPI_Barrier(MPI_COMM_WORLD);
 
 		/*Das aktuelle part_field_with_ghost wird eine Generation weiterentwickelt.
@@ -530,12 +500,6 @@ void game(int w, int h) {
 
 		evolve(part_field_with_ghost, part_field_next_gen_with_ghost,
 				(half_w + 2), (half_h + 2));
-
-		//Output to check field, only for one process
-		if (rank == outputRank && printDebug) {
-			printf("\nAFTER EVOLVING\n\n");
-			print_Partfield(rank, w, h, part_field_next_gen_with_ghost);
-		}
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
@@ -562,22 +526,6 @@ void game(int w, int h) {
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
-			//Output to check field, only for one process
-		if (rank == outputRank && printDebug) {
-			printf("Partfield für VTK for %d rank\n", rank);
-			for (int x = 0; x < (w / 2); x++) {
-				for (int y = 0; y < (h / 2); y++) {
-					printf("%d ", part_field_next_gen[calcIndex(w, x, y)]);
-				}
-				printf("\n");
-			}
-
-			printf(
-					"\n%ld timestep -------------------------------------------------------------\n\n",
-					t);
-
-		}
-
 		//SWAP
 		int *temp = part_field_with_ghost;
 		part_field_with_ghost = part_field_next_gen_with_ghost;
@@ -599,6 +547,7 @@ void game(int w, int h) {
 
 	}
 
+	printf("Process %d: DONE\n", rank);
 	free(currentfield);
 
 }
@@ -622,112 +571,3 @@ int main(int c, char **v) {
 	return 0;
 
 }
-
-/*
- * --------------------------------------------------------- OUTPUT METHODS ---------------------------------------------------------
- */
-
-void print_Partfield(int rank, int w, int h, int* part_field_with_ghost) {
-	printf("Partfield-Ghost for %d rank\n", rank);
-	for (int x = 0; x < ((w / 2) + 2); x++) {
-		for (int y = 0; y < ((h / 2) + 2); y++) {
-			printf("%d ", part_field_with_ghost[calcIndex(w, x, y)]);
-		}
-		printf("\n");
-	}
-	printf("Partfield ohne Ghost for %d rank\n", rank);
-	for (int x = 0; x < (w / 2); x++) {
-		for (int y = 0; y < (h / 2); y++) {
-			printf("%d ", part_field_with_ghost[calcIndex(w, x + 1, y + 1)]);
-		}
-		printf("\n");
-	}
-}
-
-void print_ProcessInformation(int rank, int xstart, int ystart, int xende,
-		int yende, MPI_Comm comm_cart) {
-
-	printf("--------------------------------------------\n");
-	printf("My rank: %d\n", rank);
-	printf("Section: von P(%d|%d) bis P(%d|%d) \n\n", xstart, ystart, xende,
-			yende);
-
-	printf("Position:\n");
-	if (rank == 0) {
-		printf("X0\n");
-		printf("00\n");
-	} else if (rank == 1) {
-		printf("00\n");
-		printf("X0\n");
-	} else if (rank == 2) {
-		printf("0X\n");
-		printf("00\n");
-	} else if (rank == 3) {
-		printf("00\n");
-		printf("0X\n");
-	}
-
-	int *rankleft;
-	int *rankright;
-
-	MPI_Cart_shift(comm_cart, 1, 1, &rankleft, &rankright);
-
-	printf("Neighbour-ranks: %d (left) - %d (right) \n\n", rankleft, rankright);
-
-}
-
-/*
- * Bezueglich des Ghost-Randes:
- * Keine Ausgabe des Ghostrandes, der muss rausgerechnet werden.
- * Sonst sind die Randfelder doppelt vorhanden und jede Datei ist größer als sie sein muss.
- */
-
-void writeVTK2(long timestep, int *data, char prefix[1024], long w, long h,
-		char threadnum[1024], long indexForCalc) {
-	char filename[2048];
-	int x, y;
-
-	long offsetX = 0;
-	long offsetY = 0;
-	float deltax = 1.0;
-	float deltay = 1.0;
-	long nxy = w * h * sizeof(float);
-
-	mkdir("vtk_folder", 0777);
-
-	snprintf(filename, sizeof(filename), "%s%s-%s%05ld%s", "vtk_folder/",
-			prefix, threadnum, timestep, ".vti");
-
-	FILE* fp = fopen(filename, "w");
-
-	fprintf(fp, "<?xml version=\"1.0\"?>\n");
-	fprintf(fp,
-			"<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n");
-	fprintf(fp,
-			"<ImageData WholeExtent=\"%d %d %d %d %d %d\" Origin=\"0 0 0\" Spacing=\"%le %le %le\">\n",
-			offsetX, offsetX + w, offsetY, offsetY + h, 0, 0, deltax, deltax,
-			0.0);
-	fprintf(fp, "<CellData Scalars=\"%s\">\n", prefix);
-	fprintf(fp,
-			"<DataArray type=\"Float32\" Name=\"%s\" format=\"appended\" offset=\"0\"/>\n",
-			prefix);
-	fprintf(fp, "</CellData>\n");
-	fprintf(fp, "</ImageData>\n");
-	fprintf(fp, "<AppendedData encoding=\"raw\">\n");
-	fprintf(fp, "_");
-	fwrite((unsigned char*) &nxy, sizeof(long), 1, fp);
-
-	for (x = 0; x < w; x++) {
-		for (y = 0; y < h; y++) {
-
-			float value = data[calcIndex(indexForCalc, x, y)];
-
-			fwrite((unsigned char*) &value, sizeof(float), 1, fp);
-		}
-	}
-
-	fprintf(fp, "\n</AppendedData>\n");
-	fprintf(fp, "</VTKFile>\n");
-	fclose(fp);
-}
-
