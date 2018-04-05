@@ -55,10 +55,10 @@ void filling(double* currentfield, int w, int h) {
 	}
 }
 
-double* readFromFile(char filename[256], int w, int h) {
+int* readFromFile(char filename[256], int w, int h) {
 	FILE* file = fopen(filename, "r"); //read mode
 
-	double* field = calloc((w * h), sizeof(double));
+	int* field = calloc((w * h), sizeof(double));
 
 	int size = w * h;
 	int symbol;
@@ -104,10 +104,10 @@ void game(int w, int h) {
 
 //	filling(currentfield, w, h);
 
-	double *currentfield = readFromFile("input_gol", w, h);
+	int *currentfield = readFromFile("input_gol", w, h);
 
 	int rank, size;
-	int t;
+	int t = 0;
 
 	int half_w = w / 2;
 	int half_h = h / 2;
@@ -175,10 +175,43 @@ void game(int w, int h) {
 		}
 	}
 
-	for (t = 0; t < TimeSteps; t++) {
+	MPI_Barrier(MPI_COMM_WORLD);
+
+	int *part_field_initial = calloc(half_w * half_h, sizeof(double));
+
+	for (int x = 0; x < (w / 2); x++) {
+		for (int y = 0; y < (h / 2); y++) {
+			part_field_initial[calcIndex(w, x, y)] =
+					part_field_with_ghost[calcIndex(w, x + 1, y + 1)];
+		}
+	}
+
+	if (rank == 0) {
+
+//		writeVTK2(t, currentfield, "gol", w, h, "r-", w);
+
+		writeVTK2(t, part_field_initial, "gol", half_w, half_h, "r0-", w);
+	} else if (rank == 1) {
+		writeVTK2(t, part_field_initial, "gol", half_w, half_h, "r1-", w);
+	} else if (rank == 2) {
+		writeVTK2(t, part_field_initial, "gol", half_w, half_h, "r2-", w);
+	} else if (rank == 3) {
+		writeVTK2(t, part_field_initial, "gol", half_w, half_h, "r3-", w);
+	}
+
+	for (t = 1; t <= TimeSteps; t++) {
 
 		//Output to check field, only for one process
 		if (rank == outputRank) {
+
+			printf("Complete field in %ld timestep\n", t);
+			for (int x = 0; x < w; x++) {
+				for (int y = 0; y < h; y++) {
+					printf("%d ", currentfield[calcIndex(w, x, y)]);
+				}
+				printf("\n");
+			}
+
 			print_Partfield(rank, w, h, part_field_with_ghost);
 		}
 
@@ -191,10 +224,20 @@ void game(int w, int h) {
 		int up_ghost_to_recieve[half_w];
 		int down_ghost_to_recieve[half_w];
 
+		int down_left_ghost_to_recieve;
+		int down_right_ghost_to_recieve;
+		int up_left_ghost_to_recieve;
+		int up_right_ghost_to_recieve;
+
 		int right_ghost_to_send[half_h];
 		int left_ghost_to_send[half_h];
 		int up_ghost_to_send[half_w];
 		int down_ghost_to_send[half_w];
+
+		int down_left_ghost_to_send;
+		int down_right_ghost_to_send;
+		int up_left_ghost_to_send;
+		int up_right_ghost_to_send;
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
@@ -216,6 +259,13 @@ void game(int w, int h) {
 					half_h)];
 		}
 
+		down_left_ghost_to_send =
+				part_field_with_ghost[calcIndex(w, half_h, 1)];
+		down_right_ghost_to_send = part_field_with_ghost[calcIndex(w, half_w,
+				half_h)];
+		up_left_ghost_to_send = part_field_with_ghost[calcIndex(w, 1, 1)];
+		up_right_ghost_to_send = part_field_with_ghost[calcIndex(w, 1, half_w)];
+
 		//Output to check ghost layer, only for one process
 		if (rank == outputRank) {
 			printf("Die vier zu sendenen GhostLayer von %d rank\n", rank);
@@ -226,6 +276,11 @@ void game(int w, int h) {
 				printf("u%d\n", down_ghost_to_send[y]);
 			}
 
+			printf("Die vier zu sendenen Ghost-Ecken von %d rank\n", rank);
+			printf("lo%d ro%d\n", up_left_ghost_to_send,
+					up_right_ghost_to_send);
+			printf("lu%d ru%d\n", down_left_ghost_to_send,
+					down_right_ghost_to_send);
 		}
 
 		MPI_Barrier(MPI_COMM_WORLD);
@@ -326,6 +381,93 @@ void game(int w, int h) {
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
+		if (rank == 0) {
+
+			MPI_Recv(&up_left_ghost_to_recieve, 1, MPI_INT, 3, 96,
+			MPI_COMM_WORLD, &mpi_status_up);
+			MPI_Recv(&up_right_ghost_to_recieve, 1, MPI_INT, 3, 97,
+			MPI_COMM_WORLD, &mpi_status_left);
+			MPI_Recv(&down_left_ghost_to_recieve, 1, MPI_INT, 3, 98,
+			MPI_COMM_WORLD, &mpi_status_down);
+			MPI_Recv(&down_right_ghost_to_recieve, 1, MPI_INT, 3, 99,
+			MPI_COMM_WORLD, &mpi_status_right);
+
+			MPI_Send(&down_right_ghost_to_send, 1, MPI_INT, 3, 96,
+			MPI_COMM_WORLD);
+			MPI_Send(&down_left_ghost_to_send, 1, MPI_INT, 3, 97,
+			MPI_COMM_WORLD);
+			MPI_Send(&up_right_ghost_to_send, 1, MPI_INT, 3, 98,
+			MPI_COMM_WORLD);
+			MPI_Send(&up_left_ghost_to_send, 1, MPI_INT, 3, 99,
+			MPI_COMM_WORLD);
+
+		}
+		if (rank == 1) {
+
+			MPI_Recv(&up_left_ghost_to_recieve, 1, MPI_INT, 2, 96,
+			MPI_COMM_WORLD, &mpi_status_up);
+			MPI_Recv(&up_right_ghost_to_recieve, 1, MPI_INT, 2, 97,
+			MPI_COMM_WORLD, &mpi_status_left);
+			MPI_Recv(&down_left_ghost_to_recieve, 1, MPI_INT, 2, 98,
+			MPI_COMM_WORLD, &mpi_status_down);
+			MPI_Recv(&down_right_ghost_to_recieve, 1, MPI_INT, 2, 99,
+			MPI_COMM_WORLD, &mpi_status_right);
+
+			MPI_Send(&down_right_ghost_to_send, 1, MPI_INT, 2, 96,
+			MPI_COMM_WORLD);
+			MPI_Send(&down_left_ghost_to_send, 1, MPI_INT, 2, 97,
+			MPI_COMM_WORLD);
+			MPI_Send(&up_right_ghost_to_send, 1, MPI_INT, 2, 98,
+			MPI_COMM_WORLD);
+			MPI_Send(&up_left_ghost_to_send, 1, MPI_INT, 2, 99,
+			MPI_COMM_WORLD);
+
+		}
+		if (rank == 2) {
+
+			MPI_Send(&down_right_ghost_to_send, 1, MPI_INT, 1, 96,
+			MPI_COMM_WORLD);
+			MPI_Send(&down_left_ghost_to_send, 1, MPI_INT, 1, 97,
+			MPI_COMM_WORLD);
+			MPI_Send(&up_right_ghost_to_send, 1, MPI_INT, 1, 98,
+			MPI_COMM_WORLD);
+			MPI_Send(&up_left_ghost_to_send, 1, MPI_INT, 1, 99,
+			MPI_COMM_WORLD);
+
+			MPI_Recv(&up_left_ghost_to_recieve, 1, MPI_INT, 1, 96,
+			MPI_COMM_WORLD, &mpi_status_up);
+			MPI_Recv(&up_right_ghost_to_recieve, 1, MPI_INT, 1, 97,
+			MPI_COMM_WORLD, &mpi_status_left);
+			MPI_Recv(&down_left_ghost_to_recieve, 1, MPI_INT, 1, 98,
+			MPI_COMM_WORLD, &mpi_status_down);
+			MPI_Recv(&down_right_ghost_to_recieve, 1, MPI_INT, 1, 99,
+			MPI_COMM_WORLD, &mpi_status_right);
+
+		}
+		if (rank == 3) {
+
+			MPI_Send(&down_right_ghost_to_send, 1, MPI_INT, 0, 96,
+			MPI_COMM_WORLD);
+			MPI_Send(&down_left_ghost_to_send, 1, MPI_INT, 0, 97,
+			MPI_COMM_WORLD);
+			MPI_Send(&up_right_ghost_to_send, 1, MPI_INT, 0, 98,
+			MPI_COMM_WORLD);
+			MPI_Send(&up_left_ghost_to_send, 1, MPI_INT, 0, 99,
+			MPI_COMM_WORLD);
+
+			MPI_Recv(&up_left_ghost_to_recieve, 1, MPI_INT, 0, 96,
+			MPI_COMM_WORLD, &mpi_status_up);
+			MPI_Recv(&up_right_ghost_to_recieve, 1, MPI_INT, 0, 97,
+			MPI_COMM_WORLD, &mpi_status_left);
+			MPI_Recv(&down_left_ghost_to_recieve, 1, MPI_INT, 0, 98,
+			MPI_COMM_WORLD, &mpi_status_down);
+			MPI_Recv(&down_right_ghost_to_recieve, 1, MPI_INT, 0, 99,
+			MPI_COMM_WORLD, &mpi_status_right);
+
+		}
+
+		MPI_Barrier(MPI_COMM_WORLD);
+
 		//Output to check recieved ghost, only for one process
 		if (rank == outputRank) {
 			printf("Die vier erhaltenen GhostLayer von %d rank\n", rank);
@@ -335,6 +477,12 @@ void game(int w, int h) {
 				printf("o%d ", up_ghost_to_recieve[y]);
 				printf("u%d\n", down_ghost_to_recieve[y]);
 			}
+
+			printf("Die vier erhaltenen Ghost-Ecken von %d rank\n", rank);
+			printf("lo%d ro%d\n", up_left_ghost_to_recieve,
+					up_right_ghost_to_recieve);
+			printf("lu%d ru%d\n", down_left_ghost_to_recieve,
+					down_right_ghost_to_recieve);
 
 		}
 
@@ -353,6 +501,14 @@ void game(int w, int h) {
 			part_field_with_ghost[calcIndex(w, (half_w + 1), i + 1)] =
 					down_ghost_to_recieve[i];
 		}
+
+		part_field_with_ghost[calcIndex(w, 0, 0)] = up_left_ghost_to_recieve;
+		part_field_with_ghost[calcIndex(w, 0, half_w + 1)] =
+				up_right_ghost_to_recieve;
+		part_field_with_ghost[calcIndex(w, half_h + 1, 0)] =
+				down_left_ghost_to_recieve;
+		part_field_with_ghost[calcIndex(w, half_w + 1, half_h + 1)] =
+				down_right_ghost_to_recieve;
 
 		//Output to check field, only for one process
 		if (rank == outputRank) {
@@ -394,6 +550,13 @@ void game(int w, int h) {
 			}
 		}
 
+		for (int x = 0; x < half_w; x++) {
+			for (int y = 0; y < half_h; y++) {
+				currentfield[calcIndex(w, x + xStart, y + yStart)] =
+						part_field_next_gen[calcIndex(w, x, y)];
+			}
+		}
+
 		if (rank == outputRank) {
 
 			//Output to check field
@@ -421,13 +584,16 @@ void game(int w, int h) {
 		MPI_Barrier(MPI_COMM_WORLD);
 
 		if (rank == 0) {
-			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r0-");
+
+//			writeVTK2(t, currentfield, "gol", w, h, "r-", w);
+
+			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r0-", w);
 		} else if (rank == 1) {
-			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r1-");
+			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r1-", w);
 		} else if (rank == 2) {
-			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r2-");
+			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r2-", w);
 		} else if (rank == 3) {
-			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r3-");
+			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r3-", w);
 		}
 
 		usleep(200000);
@@ -519,7 +685,7 @@ void print_ProcessInformation(int rank, int xstart, int ystart, int xende,
  */
 
 void writeVTK2(long timestep, int *data, char prefix[1024], long w, long h,
-		char threadnum[1024]) {
+		char threadnum[1024], long indexForCalc) {
 	char filename[2048];
 	int x, y;
 
@@ -556,7 +722,7 @@ void writeVTK2(long timestep, int *data, char prefix[1024], long w, long h,
 	for (x = 0; x < w; x++) {
 		for (y = 0; y < h; y++) {
 
-			float value = data[calcIndex((w * 2), x, y)];
+			float value = data[calcIndex(indexForCalc, x, y)];
 
 			fwrite((unsigned char*) &value, sizeof(float), 1, fp);
 		}
