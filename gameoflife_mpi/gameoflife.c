@@ -134,8 +134,7 @@ void game(int w, int h) {
 
 	int *part_field_with_ghost = calloc((half_w + 2) * (half_h + 2),
 			sizeof(double));
-
-	int *part_field_next_gen = calloc(half_w * half_h, sizeof(double));
+	int *part_field = calloc(half_w * half_h, sizeof(double));
 	int *part_field_next_gen_with_ghost = calloc((half_w + 2) * (half_h + 2),
 			sizeof(double));
 
@@ -184,29 +183,6 @@ void game(int w, int h) {
 		}
 	}
 
-	MPI_Barrier(MPI_COMM_WORLD);
-
-	int *part_field_initial = calloc(half_w * half_h, sizeof(double));
-
-	for (int x = 0; x < (w / 2); x++) {
-		for (int y = 0; y < (h / 2); y++) {
-			part_field_initial[calcIndex(w, x, y)] =
-					part_field_with_ghost[calcIndex(w, x + 1, y + 1)];
-		}
-	}
-
-	MPI_Barrier(MPI_COMM_WORLD);
-
-	if (rank == 0) {
-		writeVTK2(t, part_field_initial, "gol", half_w, half_h, "r0-", w);
-	} else if (rank == 1) {
-		writeVTK2(t, part_field_initial, "gol", half_w, half_h, "r1-", w);
-	} else if (rank == 2) {
-		writeVTK2(t, part_field_initial, "gol", half_w, half_h, "r2-", w);
-	} else if (rank == 3) {
-		writeVTK2(t, part_field_initial, "gol", half_w, half_h, "r3-", w);
-	}
-
 	if (rank == outputRank) {
 
 		printf("Complete field in %ld timestep\n", t);
@@ -219,8 +195,37 @@ void game(int w, int h) {
 
 	}
 
+	MPI_Barrier(MPI_COMM_WORLD);
+
 	//GoL begins
 	for (t = 1; t <= TimeSteps; t++) {
+
+		/*Das aktuelle part_field_next_gen_with_ghost wird in ein Feld ohne ghost geschrieben und dann in die VTK geschrieben
+		 * ------------------------------------------------------------------------------------------------------------------------------------
+		 */
+
+		for (int x = 0; x < (w / 2); x++) {
+			for (int y = 0; y < (h / 2); y++) {
+				part_field[calcIndex(w, x, y)] =
+						part_field_with_ghost[calcIndex(w, x + 1, y + 1)];
+			}
+		}
+
+		//Output to check field, only for one process
+		if (rank == outputRank && printDebug) {
+			printf("Partfield für VTK for %d rank\n", rank);
+			for (int x = 0; x < (w / 2); x++) {
+				for (int y = 0; y < (h / 2); y++) {
+					printf("%d ", part_field[calcIndex(w, x, y)]);
+				}
+				printf("\n");
+			}
+
+		}
+
+		char specific_filename[1024];
+		sprintf(specific_filename, "r%d-", rank);
+		writeVTK2(t, part_field, "gol", half_w, half_h, specific_filename, w);
 
 		//Output to check field, only for one process
 		if (rank == outputRank && printDebug) {
@@ -534,65 +539,18 @@ void game(int w, int h) {
 		if (rank == outputRank && printDebug) {
 			printf("\nAFTER EVOLVING\n\n");
 			print_Partfield(rank, w, h, part_field_next_gen_with_ghost);
-		}
-
-		MPI_Barrier(MPI_COMM_WORLD);
-
-		/*Das aktuelle part_field_next_gen_with_ghost wird in ein Feld ohne ghost geschrieben und dann in die VTK geschrieben
-		 * ------------------------------------------------------------------------------------------------------------------------------------
-		 */
-
-		for (int x = 0; x < (w / 2); x++) {
-			for (int y = 0; y < (h / 2); y++) {
-				part_field_next_gen[calcIndex(w, x, y)] =
-						part_field_next_gen_with_ghost[calcIndex(w, x + 1,
-								y + 1)];
-			}
-		}
-
-		MPI_Barrier(MPI_COMM_WORLD);
-
-		for (int x = 0; x < half_w; x++) {
-			for (int y = 0; y < half_h; y++) {
-				currentfield[calcIndex(w, x + xStart, y + yStart)] =
-						part_field_next_gen[calcIndex(w, x, y)];
-			}
-		}
-
-		MPI_Barrier(MPI_COMM_WORLD);
-
-		//Output to check field, only for one process
-		if (rank == outputRank && printDebug) {
-			printf("Partfield für VTK for %d rank\n", rank);
-			for (int x = 0; x < (w / 2); x++) {
-				for (int y = 0; y < (h / 2); y++) {
-					printf("%d ", part_field_next_gen[calcIndex(w, x, y)]);
-				}
-				printf("\n");
-			}
 
 			printf(
 					"\n%ld timestep -------------------------------------------------------------\n\n",
 					t);
-
 		}
+
+		MPI_Barrier(MPI_COMM_WORLD);
 
 		//SWAP
 		int *temp = part_field_with_ghost;
 		part_field_with_ghost = part_field_next_gen_with_ghost;
 		part_field_next_gen_with_ghost = temp;
-
-		MPI_Barrier(MPI_COMM_WORLD);
-
-		if (rank == 0) {
-			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r0-", w);
-		} else if (rank == 1) {
-			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r1-", w);
-		} else if (rank == 2) {
-			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r2-", w);
-		} else if (rank == 3) {
-			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r3-", w);
-		}
 
 //		usleep(200000);
 
