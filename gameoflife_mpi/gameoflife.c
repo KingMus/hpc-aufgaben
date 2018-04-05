@@ -15,14 +15,31 @@
 long TimeSteps = 3;
 long outputRank = 1;
 
-void evolve(double* currentfield, double* newfield, int w, int h) {
+int countLifingsPeriodic(double* field, int x, int y, int w, int h) {
+	int neighbours = 0;
+	for (int y1 = y - 1; y1 <= y + 1; y1++) {
+		for (int x1 = x - 1; x1 <= x + 1; x1++) {
+			if (field[calcIndex(w, (x1 + w) % w, (y1 + h) % h)]) {
+				neighbours++;
+			}
+		}
+	}
+	return neighbours;
+
+}
+
+void evolve(double* oldfield, double* newfield, int w, int h) {
+
 	int x, y;
 	for (y = 0; y < h; y++) {
 		for (x = 0; x < w; x++) {
 
-			//TODO FIXME impletent rules and assign new value
+			int n = countLifingsPeriodic(oldfield, x, y, w, h);
+			if (oldfield[calcIndex(w, x, y)])
+				n--;
 
-			newfield[calcIndex(w, x, y)] = !newfield[calcIndex(w, x, y)];
+			newfield[calcIndex(w, x, y)] = (n == 3
+					|| (n == 2 && oldfield[calcIndex(w, x, y)]));
 		}
 	}
 }
@@ -223,7 +240,7 @@ void game(int w, int h) {
 //		print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
 
 			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 2, 96,
-					MPI_COMM_WORLD, &mpi_status_up);
+			MPI_COMM_WORLD, &mpi_status_up);
 			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 1, 97,
 			MPI_COMM_WORLD, &mpi_status_left);
 			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 2, 98,
@@ -232,12 +249,12 @@ void game(int w, int h) {
 			MPI_COMM_WORLD, &mpi_status_right);
 
 			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 2, 96,
-					MPI_COMM_WORLD);
+			MPI_COMM_WORLD);
 			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 1, 97,
-					MPI_COMM_WORLD);
+			MPI_COMM_WORLD);
 			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 2, 98, MPI_COMM_WORLD);
 			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 1, 99,
-					MPI_COMM_WORLD);
+			MPI_COMM_WORLD);
 
 		}
 		if (rank == 1) {
@@ -245,15 +262,15 @@ void game(int w, int h) {
 //		print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
 
 			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 3, 96,
-					MPI_COMM_WORLD);
+			MPI_COMM_WORLD);
 			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 0, 97,
-					MPI_COMM_WORLD);
+			MPI_COMM_WORLD);
 			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 3, 98, MPI_COMM_WORLD);
 			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 0, 99,
-					MPI_COMM_WORLD);
+			MPI_COMM_WORLD);
 
 			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 3, 96,
-					MPI_COMM_WORLD, &mpi_status_up);
+			MPI_COMM_WORLD, &mpi_status_up);
 			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 0, 97,
 			MPI_COMM_WORLD, &mpi_status_left);
 			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 3, 98,
@@ -267,15 +284,15 @@ void game(int w, int h) {
 //		print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
 
 			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 0, 96,
-					MPI_COMM_WORLD);
+			MPI_COMM_WORLD);
 			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 3, 97,
-					MPI_COMM_WORLD);
+			MPI_COMM_WORLD);
 			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 0, 98, MPI_COMM_WORLD);
 			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 3, 99,
-					MPI_COMM_WORLD);
+			MPI_COMM_WORLD);
 
 			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 0, 96,
-					MPI_COMM_WORLD, &mpi_status_up);
+			MPI_COMM_WORLD, &mpi_status_up);
 			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 3, 97,
 			MPI_COMM_WORLD, &mpi_status_left);
 			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 0, 98,
@@ -289,7 +306,7 @@ void game(int w, int h) {
 //		print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
 
 			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 1, 96,
-					MPI_COMM_WORLD, &mpi_status_up);
+			MPI_COMM_WORLD, &mpi_status_up);
 			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 2, 97,
 			MPI_COMM_WORLD, &mpi_status_left);
 			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 1, 98,
@@ -298,12 +315,12 @@ void game(int w, int h) {
 			MPI_COMM_WORLD, &mpi_status_right);
 
 			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 1, 96,
-					MPI_COMM_WORLD);
+			MPI_COMM_WORLD);
 			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 2, 97,
-					MPI_COMM_WORLD);
+			MPI_COMM_WORLD);
 			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 1, 98, MPI_COMM_WORLD);
 			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 2, 99,
-					MPI_COMM_WORLD);
+			MPI_COMM_WORLD);
 
 		}
 
@@ -344,6 +361,43 @@ void game(int w, int h) {
 			printf("\n%ld timestep\n\n", t);
 		}
 
+		/*Das aktuelle part_field_with_ghost wird eine Generation weiterentwickelt.
+		 * ------------------------------------------------------------------------------------------------------------------------------------
+		 */
+
+		int *part_field_next_gen_with_ghost = calloc(half_w + 2 * half_h + 2,
+				sizeof(double));
+
+//		evolve(part_field_with_ghost, part_field_next_gen_with_ghost,
+//				(half_w + 2), (half_h + 2));
+
+		/*Das aktuelle part_field_next_gen_with_ghost wird in ein Feld ohne ghost geschrieben und dann in die VTK geschrieben
+		 * ------------------------------------------------------------------------------------------------------------------------------------
+		 */
+
+		int *part_field_next_gen = calloc(half_w * half_h, sizeof(double));
+
+		for (int x = 0; x < (w / 2); x++) {
+			for (int y = 0; y < (h / 2); y++) {
+				part_field_next_gen[calcIndex(w, x, y)] =
+						part_field_next_gen_with_ghost[calcIndex(w, x + 1,
+								y + 1)];
+			}
+		}
+
+		if (rank == outputRank) {
+
+			//Output to check field
+			printf("Partfield für VTK for %d rank\n", rank);
+			for (int x = 0; x < (w / 2); x++) {
+				for (int y = 0; y < (h / 2); y++) {
+					printf("%d ", part_field_next_gen[calcIndex(w, x, y)]);
+				}
+				printf("\n");
+			}
+
+		}
+
 		/*
 
 		 if (rank == 0) {
@@ -360,17 +414,6 @@ void game(int w, int h) {
 		 yEnd - yStart, "_r3_");
 		 }
 
-		 printf("\n Current Part field with Exchange \n");
-
-		 //         evolve(current_part_field, new_part_field, w, h, 1, 15, 1, 15);
-
-		 /*
-
-		 show(currentfield, w, h);
-		 evolve(currentfield, newfield, w, h);
-
-
-		 writeVTK2(t, currentfield, "gol", w, h);
 
 		 usleep(200000);
 
