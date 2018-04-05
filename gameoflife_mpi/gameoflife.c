@@ -15,7 +15,7 @@
 long TimeSteps = 3;
 long outputRank = 1;
 
-int countLifingsPeriodic(double* field, int x, int y, int w, int h) {
+int countLifingsPeriodic(int* field, int x, int y, int w, int h) {
 	int neighbours = 0;
 	for (int y1 = y - 1; y1 <= y + 1; y1++) {
 		for (int x1 = x - 1; x1 <= x + 1; x1++) {
@@ -28,7 +28,7 @@ int countLifingsPeriodic(double* field, int x, int y, int w, int h) {
 
 }
 
-void evolve(double* oldfield, double* newfield, int w, int h) {
+void evolve(int* oldfield, int* newfield, int w, int h) {
 
 	int x, y;
 	for (y = 0; y < h; y++) {
@@ -175,12 +175,12 @@ void game(int w, int h) {
 		}
 	}
 
-	//Output to check field, only for one process
-	if (rank == outputRank) {
-		print_Partfield(rank, w, h, part_field_with_ghost);
-	}
-
 	for (t = 0; t < TimeSteps; t++) {
+
+		//Output to check field, only for one process
+		if (rank == outputRank) {
+			print_Partfield(rank, w, h, part_field_with_ghost);
+		}
 
 		/*Für den Randaustausch benötigte Variablen.
 		 * ------------------------------------------------------------------------------------------------------------------------------------
@@ -358,22 +358,25 @@ void game(int w, int h) {
 		if (rank == outputRank) {
 			printf("\nDANACH\n");
 			print_Partfield(rank, w, h, part_field_with_ghost);
-			printf("\n%ld timestep\n\n", t);
 		}
+
+		MPI_Barrier(MPI_COMM_WORLD);
 
 		/*Das aktuelle part_field_with_ghost wird eine Generation weiterentwickelt.
 		 * ------------------------------------------------------------------------------------------------------------------------------------
 		 */
 
-		int *part_field_next_gen_with_ghost = calloc(half_w + 2 * half_h + 2,
-				sizeof(double));
+		int *part_field_next_gen_with_ghost = calloc(
+				(half_w + 2) * (half_h + 2), sizeof(double));
 
-//		evolve(part_field_with_ghost, part_field_next_gen_with_ghost,
-//				(half_w + 2), (half_h + 2));
+		evolve(part_field_with_ghost, part_field_next_gen_with_ghost,
+				(half_w + 2), (half_h + 2));
 
 		/*Das aktuelle part_field_next_gen_with_ghost wird in ein Feld ohne ghost geschrieben und dann in die VTK geschrieben
 		 * ------------------------------------------------------------------------------------------------------------------------------------
 		 */
+
+		MPI_Barrier(MPI_COMM_WORLD);
 
 		int *part_field_next_gen = calloc(half_w * half_h, sizeof(double));
 
@@ -396,7 +399,18 @@ void game(int w, int h) {
 				printf("\n");
 			}
 
+			printf("\n%ld timestep\n\n", t);
+
 		}
+
+		MPI_Barrier(MPI_COMM_WORLD);
+
+		//SWAP
+		int *temp = part_field_with_ghost;
+		part_field_with_ghost = part_field_next_gen;
+		part_field_next_gen = temp;
+
+		MPI_Barrier(MPI_COMM_WORLD);
 
 		/*
 
@@ -417,10 +431,6 @@ void game(int w, int h) {
 
 		 usleep(200000);
 
-		 //SWAP
-		 double *temp = currentfield;
-		 currentfield = newfield;
-		 newfield = temp;
 		 }
 
 		 */
