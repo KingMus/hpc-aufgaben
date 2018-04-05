@@ -136,6 +136,8 @@ void game(int w, int h) {
 			sizeof(double));
 
 	int *part_field_next_gen = calloc(half_w * half_h, sizeof(double));
+	int *part_field_next_gen_with_ghost = calloc((half_w + 2) * (half_h + 2),
+			sizeof(double));
 
 	/*Setze Start- und End-Values
 	 * ------------------------------------------------------------------------------------------------------------------------------------
@@ -167,8 +169,8 @@ void game(int w, int h) {
 		yEnd = h;
 	}
 
-	if(printProcessInformation){
-	print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
+	if (printProcessInformation) {
+		print_ProcessInformation(rank, xStart, yStart, xEnd, yEnd, comm_cart);
 	}
 
 	/*Für jeden Prozess wird das passende Teilfeld aus dem großen currentfield geschrieben (ohne Ghostrand-Befüllung)
@@ -525,9 +527,6 @@ void game(int w, int h) {
 		 * ------------------------------------------------------------------------------------------------------------------------------------
 		 */
 
-		int *part_field_next_gen_with_ghost = calloc(
-				(half_w + 2) * (half_h + 2), sizeof(double));
-
 		evolve(part_field_with_ghost, part_field_next_gen_with_ghost,
 				(half_w + 2), (half_h + 2));
 
@@ -562,7 +561,7 @@ void game(int w, int h) {
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
-			//Output to check field, only for one process
+		//Output to check field, only for one process
 		if (rank == outputRank && printDebug) {
 			printf("Partfield für VTK for %d rank\n", rank);
 			for (int x = 0; x < (w / 2); x++) {
