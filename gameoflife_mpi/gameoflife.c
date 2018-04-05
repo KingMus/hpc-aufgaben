@@ -12,7 +12,7 @@
 
 #define calcIndex(width, x,y)  ((x)*(width) + (y))
 
-long TimeSteps = 3;
+long TimeSteps = 20;
 long outputRank = 3;
 
 int countLifingsPeriodic(int* field, int x, int y, int w, int h) {
@@ -135,6 +135,8 @@ void game(int w, int h) {
 	int *part_field_with_ghost = calloc((half_w + 2) * (half_h + 2),
 			sizeof(double));
 
+	int *part_field_next_gen = calloc(half_w * half_h, sizeof(double));
+
 	/*Setze Start- und End-Values
 	 * ------------------------------------------------------------------------------------------------------------------------------------
 	 */
@@ -202,19 +204,22 @@ void game(int w, int h) {
 		writeVTK2(t, part_field_initial, "gol", half_w, half_h, "r3-", w);
 	}
 
+	if (rank == outputRank) {
+
+		printf("Complete field in %ld timestep\n", t);
+		for (int x = 0; x < w; x++) {
+			for (int y = 0; y < h; y++) {
+				printf("%d ", currentfield[calcIndex(w, x, y)]);
+			}
+			printf("\n");
+		}
+
+	}
+
 	for (t = 1; t <= TimeSteps; t++) {
 
 		//Output to check field, only for one process
 		if (rank == outputRank) {
-
-			printf("Complete field in %ld timestep\n", t);
-			for (int x = 0; x < w; x++) {
-				for (int y = 0; y < h; y++) {
-					printf("%d ", currentfield[calcIndex(w, x, y)]);
-				}
-				printf("\n");
-			}
-
 			print_Partfield(rank, w, h, part_field_with_ghost);
 		}
 
@@ -548,8 +553,6 @@ void game(int w, int h) {
 		 * ------------------------------------------------------------------------------------------------------------------------------------
 		 */
 
-		int *part_field_next_gen = calloc(half_w * half_h, sizeof(double));
-
 		for (int x = 0; x < (w / 2); x++) {
 			for (int y = 0; y < (h / 2); y++) {
 				part_field_next_gen[calcIndex(w, x, y)] =
@@ -596,9 +599,6 @@ void game(int w, int h) {
 		MPI_Barrier(MPI_COMM_WORLD);
 
 		if (rank == 0) {
-
-//			writeVTK2(t, currentfield, "gol", w, h, "r-", w);
-
 			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r0-", w);
 		} else if (rank == 1) {
 			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r1-", w);
