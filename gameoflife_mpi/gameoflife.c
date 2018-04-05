@@ -12,15 +12,15 @@
 
 #define calcIndex(width, x,y)  ((x)*(width) + (y))
 
-long TimeSteps = 5;
-long outputRank = 1;
+long TimeSteps = 3;
+long outputRank = 3;
 
 int countLifingsPeriodic(int* field, int x, int y, int w, int h) {
 	int neighbours = 0;
 
 	for (int x1 = x - 1; x1 <= x + 1; x1++) {
 		for (int y1 = y - 1; y1 <= y + 1; y1++) {
-			if (field[calcIndex((w - 2) * 2, (x1 + w) % w, (y1 + h) % h)]) {
+			if (field[calcIndex((w - 2) * 2, x1, y1)]) {
 				neighbours++;
 			}
 		}
@@ -32,8 +32,8 @@ int countLifingsPeriodic(int* field, int x, int y, int w, int h) {
 void evolve(int* oldfield, int* newfield, int w, int h) {
 
 	int x, y;
-	for (x = 0; x < w; x++) {
-		for (y = 0; y < h; y++) {
+	for (x = 1; x < w - 1; x++) {
+		for (y = 1; y < h - 1; y++) {
 
 			int n = countLifingsPeriodic(oldfield, x, y, w, h);
 			if (oldfield[calcIndex((w - 2) * 2, x, y)])
@@ -186,6 +186,8 @@ void game(int w, int h) {
 					part_field_with_ghost[calcIndex(w, x + 1, y + 1)];
 		}
 	}
+
+	MPI_Barrier(MPI_COMM_WORLD);
 
 	if (rank == 0) {
 
@@ -540,11 +542,11 @@ void game(int w, int h) {
 			print_Partfield(rank, w, h, part_field_next_gen_with_ghost);
 		}
 
+		MPI_Barrier(MPI_COMM_WORLD);
+
 		/*Das aktuelle part_field_next_gen_with_ghost wird in ein Feld ohne ghost geschrieben und dann in die VTK geschrieben
 		 * ------------------------------------------------------------------------------------------------------------------------------------
 		 */
-
-		MPI_Barrier(MPI_COMM_WORLD);
 
 		int *part_field_next_gen = calloc(half_w * half_h, sizeof(double));
 
@@ -556,12 +558,16 @@ void game(int w, int h) {
 			}
 		}
 
+		MPI_Barrier(MPI_COMM_WORLD);
+
 		for (int x = 0; x < half_w; x++) {
 			for (int y = 0; y < half_h; y++) {
 				currentfield[calcIndex(w, x + xStart, y + yStart)] =
 						part_field_next_gen[calcIndex(w, x, y)];
 			}
 		}
+
+		MPI_Barrier(MPI_COMM_WORLD);
 
 		if (rank == outputRank) {
 
@@ -602,7 +608,7 @@ void game(int w, int h) {
 			writeVTK2(t, part_field_next_gen, "gol", half_w, half_h, "r3-", w);
 		}
 
-		usleep(200000);
+//		usleep(200000);
 
 	}
 
