@@ -12,14 +12,15 @@
 
 #define calcIndex(width, x,y)  ((x)*(width) + (y))
 
-long TimeSteps = 3;
+long TimeSteps = 5;
 long outputRank = 1;
 
 int countLifingsPeriodic(int* field, int x, int y, int w, int h) {
 	int neighbours = 0;
-	for (int y1 = y - 1; y1 <= y + 1; y1++) {
-		for (int x1 = x - 1; x1 <= x + 1; x1++) {
-			if (field[calcIndex(w, (x1 + w) % w, (y1 + h) % h)]) {
+
+	for (int x1 = x - 1; x1 <= x + 1; x1++) {
+		for (int y1 = y - 1; y1 <= y + 1; y1++) {
+			if (field[calcIndex((w - 2) * 2, (x1 + w) % w, (y1 + h) % h)]) {
 				neighbours++;
 			}
 		}
@@ -31,15 +32,15 @@ int countLifingsPeriodic(int* field, int x, int y, int w, int h) {
 void evolve(int* oldfield, int* newfield, int w, int h) {
 
 	int x, y;
-	for (y = 0; y < h; y++) {
-		for (x = 0; x < w; x++) {
+	for (x = 0; x < w; x++) {
+		for (y = 0; y < h; y++) {
 
 			int n = countLifingsPeriodic(oldfield, x, y, w, h);
-			if (oldfield[calcIndex(w, x, y)])
+			if (oldfield[calcIndex((w - 2) * 2, x, y)])
 				n--;
 
-			newfield[calcIndex(w, x, y)] = (n == 3
-					|| (n == 2 && oldfield[calcIndex(w, x, y)]));
+			newfield[calcIndex((w - 2) * 2, x, y)] = (n == 3
+					|| (n == 2 && oldfield[calcIndex((w - 2) * 2, x, y)]));
 		}
 	}
 }
@@ -241,7 +242,7 @@ void game(int w, int h) {
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
-		/*Der von diesem Prozess zu sendende Ghostrand wird aus dem prozesseigenen part_field geschrieben.
+		/*Der von diesem Prozess zu sendende Ghostrand wird aus dem prozesseigenen part_field geschrieben. Das gilt auch für die Ghost-Ecken.
 		 * ------------------------------------------------------------------------------------------------------------------------------------
 		 */
 
@@ -285,8 +286,8 @@ void game(int w, int h) {
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
-		/* Jeder Prozess sendet jetzt seinen gerade erstellen Ghostrand seines part_fieldes.
-		 * Außerdem recieved jeder Prozess den zu ihm passenden Ghostrand und speichert ihn in ...
+		/* Jeder Prozess sendet jetzt seinen gerade erstellten Ghostrand seines part_fieldes.
+		 * Außerdem recieved jeder Prozess den zu ihm passenden Ghostrand und speichert ihn in ghost_to_recieve
 		 * ------------------------------------------------------------------------------------------------------------------------------------
 		 */
 
@@ -380,6 +381,11 @@ void game(int w, int h) {
 		}
 
 		MPI_Barrier(MPI_COMM_WORLD);
+
+		/* Jeder Prozess sendet jetzt seine gerade erstellten Ghostecken seines part_fieldes.
+		 * Außerdem recieved jeder Prozess die zu ihm passenden Ghostecken und speichert sie in ghost_to_recieve
+		 * ------------------------------------------------------------------------------------------------------------------------------------
+		 */
 
 		if (rank == 0) {
 
