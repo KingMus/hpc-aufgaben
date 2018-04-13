@@ -20,6 +20,8 @@ long TimeSteps = 20;
  * 0|1
  * 2|3
  */
+
+
 long outputRank = 3;
 // 1 für Prozessinformationen
 int printProcessInformation = 0;
