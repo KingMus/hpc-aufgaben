@@ -28,4 +28,5 @@ Branch geschlossen, findet sich im Master-Gol.
 
 Die für AB4 umgesetzte Aufgabe ist mit Comments versehen, die den Code erklären. Zumindest versuchen sie es.
 Wenn auch schlecht. Egal. Im Code sind außerdem regelmäßig Code-Stücke, die Infos ausgeben an denen der Ablauf der Anwendung
-nachvollzogen werden kann so gut es geht. Im Master befindet sich der indentische Code in "schlank".
+nachvollzogen werden kann so gut es geht. Im Master befindet sich der identische Code in "schlank". <br>
+**Wichtig:** Die für AB4 geschriebene Lösung ist weit entfernt von der angedachten Art das Problem zu lösen. Die Umsetzung ist viel zu starr an die Threadanzahl gebunden, außerdem ist viel zu schlecht mit den von MPI gegebenen Methoden umgegangen worden. Da die Lösung aber funktioniert wurde sie abgenommen. Außerhalb des Laborbezugs wäre sie jedoch nicht vertretbar.
