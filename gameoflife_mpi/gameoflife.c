@@ -12,10 +12,10 @@
 
 #define calcIndex(width, x,y)  ((x)*(width) + (y))
 
-long TimeSteps = 20;
+int finish[3];
 
 void writeVTK2(long timestep, int *data, char prefix[1024], long w, long h,
-		char threadnum[1024], long indexForCalc) {
+		char threadnum[1024], long indexForCalc, int x1, int y1) {
 	char filename[2048];
 	int x, y;
 
@@ -35,10 +35,12 @@ void writeVTK2(long timestep, int *data, char prefix[1024], long w, long h,
 	fprintf(fp, "<?xml version=\"1.0\"?>\n");
 	fprintf(fp,
 			"<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n");
+
 	fprintf(fp,
-			"<ImageData WholeExtent=\"%d %d %d %d %d %d\" Origin=\"0 0 0\" Spacing=\"%le %le %le\">\n",
-			offsetX, offsetX + w, offsetY, offsetY + h, 0, 0, deltax, deltax,
-			0.0);
+			"<ImageData WholeExtent=\"%d %d %d %d %d %d\" Origin=\"%d %d 0\" Spacing=\"%le %le %le\">\n",
+			offsetX, offsetX + w, offsetY, offsetY + h, 0, 0, x1, y1, deltax,
+			deltax, 0.0);
+
 	fprintf(fp, "<CellData Scalars=\"%s\">\n", prefix);
 	fprintf(fp,
 			"<DataArray type=\"Float32\" Name=\"%s\" format=\"appended\" offset=\"0\"/>\n",
@@ -63,7 +65,7 @@ void writeVTK2(long timestep, int *data, char prefix[1024], long w, long h,
 	fclose(fp);
 }
 
-int countLifingsPeriodic(int* field, int x, int y, int w, int h) {
+int countLifings(int* field, int x, int y, int w, int h) {
 	int neighbours = 0;
 
 	for (int x1 = x - 1; x1 <= x + 1; x1++) {
@@ -83,7 +85,7 @@ void evolve(int* oldfield, int* newfield, int w, int h) {
 	for (x = 1; x < w - 1; x++) {
 		for (y = 1; y < h - 1; y++) {
 
-			int n = countLifingsPeriodic(oldfield, x, y, w, h);
+			int n = countLifings(oldfield, x, y, w, h);
 			if (oldfield[calcIndex((w - 2) * 2, x, y)])
 				n--;
 
@@ -150,6 +152,10 @@ void game(int w, int h) {
 	MPI_Status mpi_status_right;
 	MPI_Status mpi_status_left;
 
+	MPI_Status mpi_status_nbone;
+	MPI_Status mpi_status_nbtwo;
+	MPI_Status mpi_status_nbthree;
+
 	MPI_Comm comm_cart;
 
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -212,7 +218,16 @@ void game(int w, int h) {
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	//GoL begins
-	for (t = 0; t < TimeSteps; t++) {
+	//for (t = 0; t < TimeSteps; t++) {
+
+	while (finish[0] == 0 || finish[1] == 0 || finish[2] == 0 || finish[3] == 0) {
+
+		t++;
+
+		if (rank == 0) {
+			printf("aktueller Timestep: %d - finish: %d%d%d%d\n", t, finish[0],
+					finish[1], finish[2], finish[3]);
+		}
 
 		/*Das aktuelle part_field_with_ghost wird in ein Feld ohne ghost geschrieben und dann in die VTK geschrieben
 		 * ------------------------------------------------------------------------------------------------------------------------------------
@@ -227,7 +242,19 @@ void game(int w, int h) {
 
 		char specific_filename[1024];
 		sprintf(specific_filename, "r%d-", rank);
-		writeVTK2(t, part_field, "gol", half_w, half_h, specific_filename, w);
+
+		if (rank == 0) {
+			writeVTK2(t, part_field, "gol", half_w, half_h, "r0-", w, 0, 0);
+		}
+		if (rank == 1) {
+			writeVTK2(t, part_field, "gol", half_w, half_h, "r1-", w, 3, 0);
+		}
+		if (rank == 2) {
+			writeVTK2(t, part_field, "gol", half_w, half_h, "r2-", w, 0, 3);
+		}
+		if (rank == 3) {
+			writeVTK2(t, part_field, "gol", half_w, half_h, "r3-", w, 3, 3);
+		}
 
 		/*Für den Randaustausch benötigte Variablen.
 		 * ------------------------------------------------------------------------------------------------------------------------------------
@@ -290,168 +317,168 @@ void game(int w, int h) {
 		if (rank == 0) {
 
 			//Recieve Ghost-Rand
-			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 2, 96,
+			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 2, 10,
 			MPI_COMM_WORLD, &mpi_status_up);
-			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 1, 97,
+			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 1, 11,
 			MPI_COMM_WORLD, &mpi_status_left);
-			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 2, 98,
+			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 2, 12,
 			MPI_COMM_WORLD, &mpi_status_down);
-			MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 1, 99,
+			MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 1, 13,
 			MPI_COMM_WORLD, &mpi_status_right);
 
 			//Send Ghost-Rand
-			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 2, 96,
+			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 2, 10,
 			MPI_COMM_WORLD);
-			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 1, 97,
+			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 1, 11,
 			MPI_COMM_WORLD);
-			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 2, 98, MPI_COMM_WORLD);
-			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 1, 99,
+			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 2, 12, MPI_COMM_WORLD);
+			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 1, 13,
 			MPI_COMM_WORLD);
 
 			//Recieve Ghost-Ecken
-			MPI_Recv(&up_left_ghost_to_recieve, 1, MPI_INT, 3, 96,
+			MPI_Recv(&up_left_ghost_to_recieve, 1, MPI_INT, 3, 10,
 			MPI_COMM_WORLD, &mpi_status_up);
-			MPI_Recv(&up_right_ghost_to_recieve, 1, MPI_INT, 3, 97,
+			MPI_Recv(&up_right_ghost_to_recieve, 1, MPI_INT, 3, 11,
 			MPI_COMM_WORLD, &mpi_status_left);
-			MPI_Recv(&down_left_ghost_to_recieve, 1, MPI_INT, 3, 98,
+			MPI_Recv(&down_left_ghost_to_recieve, 1, MPI_INT, 3, 12,
 			MPI_COMM_WORLD, &mpi_status_down);
-			MPI_Recv(&down_right_ghost_to_recieve, 1, MPI_INT, 3, 99,
+			MPI_Recv(&down_right_ghost_to_recieve, 1, MPI_INT, 3, 13,
 			MPI_COMM_WORLD, &mpi_status_right);
 
 			//Send Ghost-Ecken
-			MPI_Send(&down_right_ghost_to_send, 1, MPI_INT, 3, 96,
+			MPI_Send(&down_right_ghost_to_send, 1, MPI_INT, 3, 10,
 			MPI_COMM_WORLD);
-			MPI_Send(&down_left_ghost_to_send, 1, MPI_INT, 3, 97,
+			MPI_Send(&down_left_ghost_to_send, 1, MPI_INT, 3, 11,
 			MPI_COMM_WORLD);
-			MPI_Send(&up_right_ghost_to_send, 1, MPI_INT, 3, 98,
+			MPI_Send(&up_right_ghost_to_send, 1, MPI_INT, 3, 12,
 			MPI_COMM_WORLD);
-			MPI_Send(&up_left_ghost_to_send, 1, MPI_INT, 3, 99,
+			MPI_Send(&up_left_ghost_to_send, 1, MPI_INT, 3, 13,
 			MPI_COMM_WORLD);
 
 		}
 		if (rank == 1) {
 
 			//Send Ghost-Rand
-			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 3, 96,
+			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 3, 10,
 			MPI_COMM_WORLD);
-			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 0, 97,
+			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 0, 11,
 			MPI_COMM_WORLD);
-			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 3, 98, MPI_COMM_WORLD);
-			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 0, 99,
+			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 3, 12, MPI_COMM_WORLD);
+			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 0, 13,
 			MPI_COMM_WORLD);
 
 			//Recieve Ghost-Rand
-			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 3, 96,
+			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 3, 10,
 			MPI_COMM_WORLD, &mpi_status_up);
-			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 0, 97,
+			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 0, 11,
 			MPI_COMM_WORLD, &mpi_status_left);
-			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 3, 98,
+			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 3, 12,
 			MPI_COMM_WORLD, &mpi_status_down);
-			MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 0, 99,
+			MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 0, 13,
 			MPI_COMM_WORLD, &mpi_status_right);
 
 			//Recieve Ghost-Ecken
-			MPI_Recv(&up_left_ghost_to_recieve, 1, MPI_INT, 2, 96,
+			MPI_Recv(&up_left_ghost_to_recieve, 1, MPI_INT, 2, 10,
 			MPI_COMM_WORLD, &mpi_status_up);
-			MPI_Recv(&up_right_ghost_to_recieve, 1, MPI_INT, 2, 97,
+			MPI_Recv(&up_right_ghost_to_recieve, 1, MPI_INT, 2, 11,
 			MPI_COMM_WORLD, &mpi_status_left);
-			MPI_Recv(&down_left_ghost_to_recieve, 1, MPI_INT, 2, 98,
+			MPI_Recv(&down_left_ghost_to_recieve, 1, MPI_INT, 2, 12,
 			MPI_COMM_WORLD, &mpi_status_down);
-			MPI_Recv(&down_right_ghost_to_recieve, 1, MPI_INT, 2, 99,
+			MPI_Recv(&down_right_ghost_to_recieve, 1, MPI_INT, 2, 13,
 			MPI_COMM_WORLD, &mpi_status_right);
 
 			//Send Ghost-Ecken
-			MPI_Send(&down_right_ghost_to_send, 1, MPI_INT, 2, 96,
+			MPI_Send(&down_right_ghost_to_send, 1, MPI_INT, 2, 10,
 			MPI_COMM_WORLD);
-			MPI_Send(&down_left_ghost_to_send, 1, MPI_INT, 2, 97,
+			MPI_Send(&down_left_ghost_to_send, 1, MPI_INT, 2, 11,
 			MPI_COMM_WORLD);
-			MPI_Send(&up_right_ghost_to_send, 1, MPI_INT, 2, 98,
+			MPI_Send(&up_right_ghost_to_send, 1, MPI_INT, 2, 12,
 			MPI_COMM_WORLD);
-			MPI_Send(&up_left_ghost_to_send, 1, MPI_INT, 2, 99,
+			MPI_Send(&up_left_ghost_to_send, 1, MPI_INT, 2, 13,
 			MPI_COMM_WORLD);
 
 		}
 		if (rank == 2) {
 
 			//Send Ghost-Rand
-			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 0, 96,
+			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 0, 10,
 			MPI_COMM_WORLD);
-			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 3, 97,
+			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 3, 11,
 			MPI_COMM_WORLD);
-			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 0, 98, MPI_COMM_WORLD);
-			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 3, 99,
+			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 0, 12, MPI_COMM_WORLD);
+			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 3, 13,
 			MPI_COMM_WORLD);
 
 			//Recieve Ghost-Rand
-			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 0, 96,
+			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 0, 10,
 			MPI_COMM_WORLD, &mpi_status_up);
-			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 3, 97,
+			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 3, 11,
 			MPI_COMM_WORLD, &mpi_status_left);
-			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 0, 98,
+			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 0, 12,
 			MPI_COMM_WORLD, &mpi_status_down);
-			MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 3, 99,
+			MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 3, 13,
 			MPI_COMM_WORLD, &mpi_status_right);
 
 			//Send Ghost-Ecken
-			MPI_Send(&down_right_ghost_to_send, 1, MPI_INT, 1, 96,
+			MPI_Send(&down_right_ghost_to_send, 1, MPI_INT, 1, 10,
 			MPI_COMM_WORLD);
-			MPI_Send(&down_left_ghost_to_send, 1, MPI_INT, 1, 97,
+			MPI_Send(&down_left_ghost_to_send, 1, MPI_INT, 1, 11,
 			MPI_COMM_WORLD);
-			MPI_Send(&up_right_ghost_to_send, 1, MPI_INT, 1, 98,
+			MPI_Send(&up_right_ghost_to_send, 1, MPI_INT, 1, 12,
 			MPI_COMM_WORLD);
-			MPI_Send(&up_left_ghost_to_send, 1, MPI_INT, 1, 99,
+			MPI_Send(&up_left_ghost_to_send, 1, MPI_INT, 1, 13,
 			MPI_COMM_WORLD);
 
 			//Recieve Ghost-Ecken
-			MPI_Recv(&up_left_ghost_to_recieve, 1, MPI_INT, 1, 96,
+			MPI_Recv(&up_left_ghost_to_recieve, 1, MPI_INT, 1, 10,
 			MPI_COMM_WORLD, &mpi_status_up);
-			MPI_Recv(&up_right_ghost_to_recieve, 1, MPI_INT, 1, 97,
+			MPI_Recv(&up_right_ghost_to_recieve, 1, MPI_INT, 1, 11,
 			MPI_COMM_WORLD, &mpi_status_left);
-			MPI_Recv(&down_left_ghost_to_recieve, 1, MPI_INT, 1, 98,
+			MPI_Recv(&down_left_ghost_to_recieve, 1, MPI_INT, 1, 12,
 			MPI_COMM_WORLD, &mpi_status_down);
-			MPI_Recv(&down_right_ghost_to_recieve, 1, MPI_INT, 1, 99,
+			MPI_Recv(&down_right_ghost_to_recieve, 1, MPI_INT, 1, 13,
 			MPI_COMM_WORLD, &mpi_status_right);
 
 		}
 		if (rank == 3) {
 
 			//Recieve Ghost-Rand
-			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 1, 96,
+			MPI_Recv(&up_ghost_to_recieve, half_w, MPI_INT, 1, 10,
 			MPI_COMM_WORLD, &mpi_status_up);
-			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 2, 97,
+			MPI_Recv(&left_ghost_to_recieve, half_h, MPI_INT, 2, 11,
 			MPI_COMM_WORLD, &mpi_status_left);
-			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 1, 98,
+			MPI_Recv(&down_ghost_to_recieve, half_w, MPI_INT, 1, 12,
 			MPI_COMM_WORLD, &mpi_status_down);
-			MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 2, 99,
+			MPI_Recv(&right_ghost_to_recieve, half_h, MPI_INT, 2, 13,
 			MPI_COMM_WORLD, &mpi_status_right);
 
 			//Send Ghost-Rand
-			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 1, 96,
+			MPI_Send(&down_ghost_to_send, half_w, MPI_INT, 1, 10,
 			MPI_COMM_WORLD);
-			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 2, 97,
+			MPI_Send(&right_ghost_to_send, half_h, MPI_INT, 2, 11,
 			MPI_COMM_WORLD);
-			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 1, 98, MPI_COMM_WORLD);
-			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 2, 99,
+			MPI_Send(&up_ghost_to_send, half_w, MPI_INT, 1, 12, MPI_COMM_WORLD);
+			MPI_Send(&left_ghost_to_send, half_h, MPI_INT, 2, 13,
 			MPI_COMM_WORLD);
 
 			//Send Ghost-Ecken
-			MPI_Send(&down_right_ghost_to_send, 1, MPI_INT, 0, 96,
+			MPI_Send(&down_right_ghost_to_send, 1, MPI_INT, 0, 10,
 			MPI_COMM_WORLD);
-			MPI_Send(&down_left_ghost_to_send, 1, MPI_INT, 0, 97,
+			MPI_Send(&down_left_ghost_to_send, 1, MPI_INT, 0, 11,
 			MPI_COMM_WORLD);
-			MPI_Send(&up_right_ghost_to_send, 1, MPI_INT, 0, 98,
+			MPI_Send(&up_right_ghost_to_send, 1, MPI_INT, 0, 12,
 			MPI_COMM_WORLD);
-			MPI_Send(&up_left_ghost_to_send, 1, MPI_INT, 0, 99,
+			MPI_Send(&up_left_ghost_to_send, 1, MPI_INT, 0, 13,
 			MPI_COMM_WORLD);
 
 			//Recieve Ghost-Ecken
-			MPI_Recv(&up_left_ghost_to_recieve, 1, MPI_INT, 0, 96,
+			MPI_Recv(&up_left_ghost_to_recieve, 1, MPI_INT, 0, 10,
 			MPI_COMM_WORLD, &mpi_status_up);
-			MPI_Recv(&up_right_ghost_to_recieve, 1, MPI_INT, 0, 97,
+			MPI_Recv(&up_right_ghost_to_recieve, 1, MPI_INT, 0, 11,
 			MPI_COMM_WORLD, &mpi_status_left);
-			MPI_Recv(&down_left_ghost_to_recieve, 1, MPI_INT, 0, 98,
+			MPI_Recv(&down_left_ghost_to_recieve, 1, MPI_INT, 0, 12,
 			MPI_COMM_WORLD, &mpi_status_down);
-			MPI_Recv(&down_right_ghost_to_recieve, 1, MPI_INT, 0, 99,
+			MPI_Recv(&down_right_ghost_to_recieve, 1, MPI_INT, 0, 13,
 			MPI_COMM_WORLD, &mpi_status_right);
 
 		}
@@ -496,12 +523,92 @@ void game(int w, int h) {
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
+		/*Prüfen, ob Veränderung im Feld vorliegt und mit anderen austauschen
+		 * ------------------------------------------------------------------------------------------------------------------------------------
+		 */
+
+		finish[rank] = 1;
+
+		for (int x = 0; x < (w / 2); x++) {
+			for (int y = 0; y < (h / 2); y++) {
+
+				if (part_field_with_ghost[calcIndex(w, x + 1, y + 1)]
+						!= part_field_next_gen_with_ghost[calcIndex(w, x + 1,
+								y + 1)]) {
+					finish[rank] = 0;
+				}
+			}
+		}
+
+		if (rank == 0) {
+
+			MPI_Send(&finish[0], 1, MPI_INT, 1, 10, MPI_COMM_WORLD);
+			MPI_Recv(&finish[1], 1, MPI_INT, 1, 10, MPI_COMM_WORLD,
+					&mpi_status_nbone);
+
+			MPI_Send(&finish[0], 1, MPI_INT, 2, 11, MPI_COMM_WORLD);
+			MPI_Recv(&finish[2], 1, MPI_INT, 2, 11, MPI_COMM_WORLD,
+					&mpi_status_nbtwo);
+
+			MPI_Send(&finish[0], 1, MPI_INT, 3, 12, MPI_COMM_WORLD);
+			MPI_Recv(&finish[3], 1, MPI_INT, 3, 12, MPI_COMM_WORLD,
+					&mpi_status_nbthree);
+
+		}
+		if (rank == 1) {
+
+			MPI_Recv(&finish[0], 1, MPI_INT, 0, 10, MPI_COMM_WORLD,
+					&mpi_status_nbone);
+			MPI_Send(&finish[1], 1, MPI_INT, 0, 10, MPI_COMM_WORLD);
+
+			MPI_Recv(&finish[3], 1, MPI_INT, 3, 11, MPI_COMM_WORLD,
+					&mpi_status_nbthree);
+			MPI_Send(&finish[1], 1, MPI_INT, 3, 11, MPI_COMM_WORLD);
+
+			MPI_Recv(&finish[2], 1, MPI_INT, 2, 12, MPI_COMM_WORLD,
+					&mpi_status_nbtwo);
+			MPI_Send(&finish[1], 1, MPI_INT, 2, 12, MPI_COMM_WORLD);
+
+		}
+		if (rank == 2) {
+
+			MPI_Send(&finish[2], 1, MPI_INT, 3, 10, MPI_COMM_WORLD);
+			MPI_Recv(&finish[3], 1, MPI_INT, 3, 10, MPI_COMM_WORLD,
+					&mpi_status_nbthree);
+
+			MPI_Recv(&finish[0], 1, MPI_INT, 0, 11, MPI_COMM_WORLD,
+					&mpi_status_nbone);
+			MPI_Send(&finish[2], 1, MPI_INT, 0, 11, MPI_COMM_WORLD);
+
+			MPI_Send(&finish[2], 1, MPI_INT, 1, 12, MPI_COMM_WORLD);
+			MPI_Recv(&finish[1], 1, MPI_INT, 1, 12, MPI_COMM_WORLD,
+					&mpi_status_nbtwo);
+
+		}
+		if (rank == 3) {
+
+			MPI_Recv(&finish[2], 1, MPI_INT, 2, 10, MPI_COMM_WORLD,
+					&mpi_status_nbthree);
+			MPI_Send(&finish[3], 1, MPI_INT, 2, 10, MPI_COMM_WORLD);
+
+			MPI_Send(&finish[3], 1, MPI_INT, 1, 11, MPI_COMM_WORLD);
+			MPI_Recv(&finish[1], 1, MPI_INT, 1, 11, MPI_COMM_WORLD,
+					&mpi_status_nbtwo);
+
+			MPI_Recv(&finish[0], 1, MPI_INT, 0, 12, MPI_COMM_WORLD,
+					&mpi_status_nbone);
+			MPI_Send(&finish[3], 1, MPI_INT, 0, 12, MPI_COMM_WORLD);
+
+		}
+
+		MPI_Barrier(MPI_COMM_WORLD);
+
 		//SWAP
 		int *temp = part_field_with_ghost;
 		part_field_with_ghost = part_field_next_gen_with_ghost;
 		part_field_next_gen_with_ghost = temp;
 
-//		usleep(200000);
+		usleep(200000);
 
 	}
 

@@ -13,7 +13,7 @@
 long TimeSteps = 100;
 
 void writeVTK2(long timestep, double *data, char prefix[1024], int wstart,
-		int hstart, long w, long h, char threadnum[1024]) {
+		int hstart, long w, long h, char threadnum[1024], int x1, int y1) {
 	char filename[2048];
 	int x, y;
 
@@ -25,8 +25,8 @@ void writeVTK2(long timestep, double *data, char prefix[1024], int wstart,
 
 	mkdir("vtk_folder", 0777);
 
-	snprintf(filename, sizeof(filename), "%s%s-%s%05ld%s","vtk_folder/", prefix, threadnum,
-			timestep, ".vti");
+	snprintf(filename, sizeof(filename), "%s%s-%s%05ld%s", "vtk_folder/",
+			prefix, threadnum, timestep, ".vti");
 
 	FILE* fp = fopen(filename, "w");
 
@@ -34,9 +34,9 @@ void writeVTK2(long timestep, double *data, char prefix[1024], int wstart,
 	fprintf(fp,
 			"<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n");
 	fprintf(fp,
-			"<ImageData WholeExtent=\"%d %d %d %d %d %d\" Origin=\"0 0 0\" Spacing=\"%le %le %le\">\n",
+			"<ImageData WholeExtent=\"%d %d %d %d %d %d\" Origin=\"%d %d 0\" Spacing=\"%le %le %le\">\n",
 			offsetX, offsetX + (w - wstart), offsetY, offsetY + (h - hstart), 0,
-			0, deltax, deltax, 0.0);
+			0, x1, y1, deltax, deltax, 0.0);
 	fprintf(fp, "<CellData Scalars=\"%s\">\n", prefix);
 	fprintf(fp,
 			"<DataArray type=\"Float32\" Name=\"%s\" format=\"appended\" offset=\"0\"/>\n",
@@ -74,7 +74,7 @@ int getCorrectIndex(long w, long h, char threadnum[1024]) {
 	return correctIndex;
 }
 
-int countLifingsPeriodic(double* currentfield, int x, int y, int w, int h) {
+int countLifings(double* currentfield, int x, int y, int w, int h) {
 	int neighbours = 0;
 	for (int y1 = y - 1; y1 <= y + 1; y1++) {
 		for (int x1 = x - 1; x1 <= x + 1; x1++) {
@@ -121,7 +121,7 @@ void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 					newfield);
 
 			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
-					"_t1_");
+					"_t1_", xstart, ystart);
 			printf("Thread %d calulated \n", omp_get_thread_num());
 		}
 
@@ -140,7 +140,7 @@ void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 					newfield);
 
 			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
-					"_t2_");
+					"_t2_", ystart - 1, xstart);
 			printf("Thread %d calulated \n", omp_get_thread_num());
 
 		}
@@ -159,7 +159,7 @@ void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 					newfield);
 
 			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
-					"_t3_");
+					"_t3_", ystart, xstart - 1);
 			printf("Thread %d calulated \n", omp_get_thread_num());
 		}
 
@@ -178,7 +178,7 @@ void evolve(double* currentfield, double* newfield, int w, int h, long t) {
 					newfield);
 
 			writeVTK2(t, currentfield, "gol", xstart, ystart, xende, yende,
-					"_t4_");
+					"_t4_", xstart - 1, ystart - 1);
 
 			printf("Thread %d calulated \n", omp_get_thread_num());
 		}
@@ -193,7 +193,7 @@ void evolveOneStep(int ystart, int yende, int xstart, int xende, int w, int h,
 	int x, y;
 	for (y = ystart; y < yende; y++) {
 		for (x = xstart; x < xende; x++) {
-			int n = countLifingsPeriodic(currentfield, x, y, w, h);
+			int n = countLifings(currentfield, x, y, w, h);
 			if (currentfield[calcIndex(w, x, y)])
 				n--;
 
@@ -248,14 +248,14 @@ double* readFromFile(char filename[256], int w, int h) {
 }
 
 void game(int w, int h) {
-//	double *currentfield = calloc(w * h, sizeof(double));
+	double *currentfield = calloc(w * h, sizeof(double));
 	double *newfield = calloc(w * h, sizeof(double));
 
 //printf("size unsigned %d, size long %d\n",sizeof(float), sizeof(long));
 
-//	filling(currentfield, w, h);
+	filling(currentfield, w, h);
 
-	double *currentfield = readFromFile("input_gol", w, h);
+//	double *currentfield = readFromFile("input_gol", w, h);
 
 	long t;
 	for (t = 0; t < TimeSteps; t++) {
@@ -287,9 +287,9 @@ int main(int c, char **v) {
 	if (c > 2)
 		h = atoi(v[2]); ///< read height
 	if (w <= 0)
-		w = 20; ///< default width
+		w = 30; ///< default width
 	if (h <= 0)
-		h = 20; ///< default height
+		h = 30; ///< default height
 
 	game(w, h);
 
