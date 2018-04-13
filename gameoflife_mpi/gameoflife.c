@@ -12,7 +12,7 @@
 
 #define calcIndex(width, x,y)  ((x)*(width) + (y))
 
-long TimeSteps = 20;
+int finish[3];
 
 /* 0-3 für den Prozess für den der Output geschrieben werden soll.
  * dabei ist die Anordnung der Prozesse wie folgt:
@@ -20,7 +20,6 @@ long TimeSteps = 20;
  * 0|1
  * 2|3
  */
-
 
 long outputRank = 3;
 // 1 für Prozessinformationen
@@ -141,6 +140,10 @@ void game(int w, int h) {
 	MPI_Status mpi_status_right;
 	MPI_Status mpi_status_left;
 
+	MPI_Status mpi_status_nbone;
+	MPI_Status mpi_status_nbtwo;
+	MPI_Status mpi_status_nbthree;
+
 	//der im Code verwendete MPI-Communicator wird hier deklariert
 	MPI_Comm comm_cart;
 
@@ -229,8 +232,16 @@ void game(int w, int h) {
 	 */
 	MPI_Barrier(MPI_COMM_WORLD);
 
-	//GoL begins
-	for (t = 0; t <= TimeSteps; t++) {
+	//GoL begins und endet wenn alle finish auf 1 gesetzt sind.
+	while (finish[0] == 0 || finish[1] == 0 || finish[2] == 0 || finish[3] == 0) {
+
+		t++;
+
+		//Output von finish
+		if (rank == outputRank) {
+			printf("aktueller Timestep: %d - finish: %d%d%d%d\n", t, finish[0],
+					finish[1], finish[2], finish[3]);
+		}
 
 		/*Das aktuelle part_field_with_ghost wird in ein Feld ohne ghost geschrieben und dann in die VTK geschrieben
 		 * ------------------------------------------------------------------------------------------------------------------------------------
@@ -258,7 +269,18 @@ void game(int w, int h) {
 		//schreibe VTK, jeder Prozess schreibt seine eigene Datei, unterschieden wird durch den String
 		char specific_filename[1024];
 		sprintf(specific_filename, "r%d-", rank);
-		writeVTK2(t, part_field, "gol", half_w, half_h, specific_filename, w);
+		if (rank == 0) {
+			writeVTK2(t, part_field, "gol", half_w, half_h, "r0-", w, 0, 0);
+		}
+		if (rank == 1) {
+			writeVTK2(t, part_field, "gol", half_w, half_h, "r1-", w, 3, 0);
+		}
+		if (rank == 2) {
+			writeVTK2(t, part_field, "gol", half_w, half_h, "r2-", w, 0, 3);
+		}
+		if (rank == 3) {
+			writeVTK2(t, part_field, "gol", half_w, half_h, "r3-", w, 3, 3);
+		}
 
 		//Output to check field, only for one process
 		if (rank == outputRank && printDebug) {
@@ -584,6 +606,89 @@ void game(int w, int h) {
 					t);
 		}
 
+		/*Prüfen, ob Veränderung im Feld vorliegt und mit anderen austauschen
+		 * ------------------------------------------------------------------------------------------------------------------------------------
+		 */
+
+		finish[rank] = 1;
+
+		//prüfe auf Veränderung
+		for (int x = 0; x < (w / 2); x++) {
+			for (int y = 0; y < (h / 2); y++) {
+
+				if (part_field_with_ghost[calcIndex(w, x + 1, y + 1)]
+						!= part_field_next_gen_with_ghost[calcIndex(w, x + 1,
+								y + 1)]) {
+					finish[rank] = 0;
+				}
+			}
+		}
+
+		//jeder Prozess schreibt seine eigene finish-Variable, wenn auch an der richtigen Stelle.
+		//die anderen erhält er erneut durch send und recieve
+		if (rank == 0) {
+
+			MPI_Send(&finish[0], 1, MPI_INT, 1, 10, MPI_COMM_WORLD);
+			MPI_Recv(&finish[1], 1, MPI_INT, 1, 10, MPI_COMM_WORLD,
+					&mpi_status_nbone);
+
+			MPI_Send(&finish[0], 1, MPI_INT, 2, 11, MPI_COMM_WORLD);
+			MPI_Recv(&finish[2], 1, MPI_INT, 2, 11, MPI_COMM_WORLD,
+					&mpi_status_nbtwo);
+
+			MPI_Send(&finish[0], 1, MPI_INT, 3, 12, MPI_COMM_WORLD);
+			MPI_Recv(&finish[3], 1, MPI_INT, 3, 12, MPI_COMM_WORLD,
+					&mpi_status_nbthree);
+
+		}
+		if (rank == 1) {
+
+			MPI_Recv(&finish[0], 1, MPI_INT, 0, 10, MPI_COMM_WORLD,
+					&mpi_status_nbone);
+			MPI_Send(&finish[1], 1, MPI_INT, 0, 10, MPI_COMM_WORLD);
+
+			MPI_Recv(&finish[3], 1, MPI_INT, 3, 11, MPI_COMM_WORLD,
+					&mpi_status_nbthree);
+			MPI_Send(&finish[1], 1, MPI_INT, 3, 11, MPI_COMM_WORLD);
+
+			MPI_Recv(&finish[2], 1, MPI_INT, 2, 12, MPI_COMM_WORLD,
+					&mpi_status_nbtwo);
+			MPI_Send(&finish[1], 1, MPI_INT, 2, 12, MPI_COMM_WORLD);
+
+		}
+		if (rank == 2) {
+
+			MPI_Send(&finish[2], 1, MPI_INT, 3, 10, MPI_COMM_WORLD);
+			MPI_Recv(&finish[3], 1, MPI_INT, 3, 10, MPI_COMM_WORLD,
+					&mpi_status_nbthree);
+
+			MPI_Recv(&finish[0], 1, MPI_INT, 0, 11, MPI_COMM_WORLD,
+					&mpi_status_nbone);
+			MPI_Send(&finish[2], 1, MPI_INT, 0, 11, MPI_COMM_WORLD);
+
+			MPI_Send(&finish[2], 1, MPI_INT, 1, 12, MPI_COMM_WORLD);
+			MPI_Recv(&finish[1], 1, MPI_INT, 1, 12, MPI_COMM_WORLD,
+					&mpi_status_nbtwo);
+
+		}
+		if (rank == 3) {
+
+			MPI_Recv(&finish[2], 1, MPI_INT, 2, 10, MPI_COMM_WORLD,
+					&mpi_status_nbthree);
+			MPI_Send(&finish[3], 1, MPI_INT, 2, 10, MPI_COMM_WORLD);
+
+			MPI_Send(&finish[3], 1, MPI_INT, 1, 11, MPI_COMM_WORLD);
+			MPI_Recv(&finish[1], 1, MPI_INT, 1, 11, MPI_COMM_WORLD,
+					&mpi_status_nbtwo);
+
+			MPI_Recv(&finish[0], 1, MPI_INT, 0, 12, MPI_COMM_WORLD,
+					&mpi_status_nbone);
+			MPI_Send(&finish[3], 1, MPI_INT, 0, 12, MPI_COMM_WORLD);
+
+		}
+
+		MPI_Barrier(MPI_COMM_WORLD);
+
 		MPI_Barrier(MPI_COMM_WORLD);
 
 		//SWAP
@@ -595,6 +700,7 @@ void game(int w, int h) {
 
 	}
 
+	printf("Process %d: DONE\n", rank);
 	free(currentfield);
 
 }
@@ -683,7 +789,7 @@ void print_ProcessInformation(int rank, int xstart, int ystart, int xende,
  */
 
 void writeVTK2(long timestep, int *data, char prefix[1024], long w, long h,
-		char threadnum[1024], long indexForCalc) {
+		char threadnum[1024], long indexForCalc, int x1, int y1) {
 	char filename[2048];
 	int x, y;
 
@@ -704,9 +810,9 @@ void writeVTK2(long timestep, int *data, char prefix[1024], long w, long h,
 	fprintf(fp,
 			"<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n");
 	fprintf(fp,
-			"<ImageData WholeExtent=\"%d %d %d %d %d %d\" Origin=\"0 0 0\" Spacing=\"%le %le %le\">\n",
-			offsetX, offsetX + w, offsetY, offsetY + h, 0, 0, deltax, deltax,
-			0.0);
+			"<ImageData WholeExtent=\"%d %d %d %d %d %d\" Origin=\"%d %d 0\" Spacing=\"%le %le %le\">\n",
+			offsetX, offsetX + w, offsetY, offsetY + h, 0, 0, x1, y1, deltax,
+			deltax, 0.0);
 	fprintf(fp, "<CellData Scalars=\"%s\">\n", prefix);
 	fprintf(fp,
 			"<DataArray type=\"Float32\" Name=\"%s\" format=\"appended\" offset=\"0\"/>\n",
